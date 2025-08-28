@@ -37,7 +37,8 @@ st.expander("Welcome & Instructions", expanded=True).markdown(
 # Number of Months per Year
 months = list(range(1, 13))
 
-default_costs = pd.DataFrame({
+# Closing costs default values
+default_closing_costs = pd.DataFrame({
     "Category": [
         "Initial Loan Costs", "Initial Loan Costs", "Initial Loan Costs", "Initial Loan Costs", 
         "Initial Loan Costs", "Initial Loan Costs", "Initial Loan Costs", "Initial Loan Costs", 
@@ -100,12 +101,52 @@ with st.sidebar:
         # Advanced loan options
         # Add ability to refinance, specify year, etc.
         # Add ability to buy points to buy down rate (want to see the breakeven for when it makes financial sense to do that if buying)
+
         st.subheader("Closing Costs")
+        edited_costs = st.sidebar.data_editor(
+        default_closing_costs,
+        use_container_width=True,
+        num_rows="dynamic",  # enables the user to add/remove rows
+        hide_index=True)
 
         st.subheader("Taxes")
         annual_property_tax = st.number_input("Annual Property Tax ($)", value=3500, step=100)
         annual_property_tax_increase = st.number_input("Annual Property Tax Increase (%)", value=3.0, step=0.1)
         state_property_transfer_tax = st.number_input("State Property Transfer Tax (%)", value=1.5, step=0.1)
+
+    # Additional Mortgage Principal Payments; I MAY WANT TO PULL THIS OUT INTO ITS OWN TABLE OUTSIDE OF SIDEBAR
+    st.sidebar.header("Extra Principal Payments")
+
+    default_payments = pd.DataFrame({
+        "Amount ($)": [200, 10000],
+        "Start Year": [2025, 2030],
+        "Start Month": [1, 6],
+        "End Year": [2030, 2030],
+        "End Month": [12, 6],
+        "Frequency": ["Monthly", "One-time"]
+    })
+
+    # Dropdown options
+    frequency_options = ["One-time", "Monthly", "Quarterly", "Annually", "Every X Years"]
+    month_options = list(range(1, 13))
+    year_options = list(range(2025, 2101))
+
+    # Editable table with dropdowns
+    edited_payments = st.data_editor(
+        default_payments,
+        column_config={
+            "Frequency": st.column_config.SelectboxColumn("Frequency", options=frequency_options),
+            "Start Month": st.column_config.SelectboxColumn("Start Month", options=month_options),
+            "End Month": st.column_config.SelectboxColumn("End Month", options=month_options),
+            "Start Year": st.column_config.SelectboxColumn("Start Year", options=year_options),
+            "End Year": st.column_config.SelectboxColumn("End Year", options=year_options),
+        },
+        width="stretch",   # replaces use_container_width
+        hide_index=True,
+        num_rows="dynamic"
+    )
+    
+    default_payments = default_payments[["Frequency","Amount ($)", "Start Year", "Start Month", "End Year", "End Month"]]
 
     st.markdown("---")
 
