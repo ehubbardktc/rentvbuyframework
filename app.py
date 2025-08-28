@@ -117,36 +117,71 @@ with st.sidebar:
     # Additional Mortgage Principal Payments; I MAY WANT TO PULL THIS OUT INTO ITS OWN TABLE OUTSIDE OF SIDEBAR
     st.sidebar.header("Extra Principal Payments")
 
+    st.sidebar.markdown("""
+    **Notes on Frequency:**
+
+    - **One-time:** Payment occurs **once** in the Start Year/Month. End Year/Month are ignored.  
+    - **Monthly:** Payment occurs **every month** from Start Month/Year to End Month/Year.  
+    - **Quarterly:** Payment occurs **once every 3 months** from Start Month/Year to End Month/Year.  
+    - **Annually:** Payment occurs **once per year** in the Start Month, from Start Year to End Year.  
+    - **Every X Years:** Payment occurs **once every X years**, in the Start Month, between Start Year and End Year.  
+    """)
+
+
     default_payments = pd.DataFrame({
         "Amount ($)": [200, 10000],
+        "Frequency": ["Monthly", "One-time"],
         "Start Year": [2025, 2030],
         "Start Month": [1, 6],
         "End Year": [2030, 2030],
         "End Month": [12, 6],
-        "Frequency": ["Monthly", "One-time"]
+        "Interval (X Years)": [None, None]  # Used only for "Every X Years"
     })
 
     # Dropdown options
-    frequency_options = ["One-time", "Monthly", "Quarterly", "Annually", "Every X Years"]
+    frequency_options = ["One-time", "Monthly", "Quarterly", "Annually", "Every X Years"] # Need to check to ensure these work as anticipated
     month_options = list(range(1, 13))
     year_options = list(range(2025, 2101))
 
-    # Editable table with dropdowns
-    edited_payments = st.data_editor(
+    # Editable table with dropdowns and tooltips
+    # Help icons come into play when hover over column
+    edited_payments = st.sidebar.data_editor(
         default_payments,
         column_config={
-            "Frequency": st.column_config.SelectboxColumn("Frequency", options=frequency_options),
-            "Start Month": st.column_config.SelectboxColumn("Start Month", options=month_options),
-            "End Month": st.column_config.SelectboxColumn("End Month", options=month_options),
-            "Start Year": st.column_config.SelectboxColumn("Start Year", options=year_options),
-            "End Year": st.column_config.SelectboxColumn("End Year", options=year_options),
+            "Amount ($)": st.column_config.NumberColumn(
+                "Amount ($)", min_value=0, step=100
+            ),
+            "Frequency": st.column_config.SelectboxColumn(
+                "Frequency", options=frequency_options,
+                help="Select how often this payment is applied."
+            ),
+            "Start Year": st.column_config.SelectboxColumn(
+                "Start Year", options=year_options,
+                help="Year the payment schedule starts."
+            ),
+            "Start Month": st.column_config.SelectboxColumn(
+                "Start Month", options=month_options,
+                help="Month the payment occurs each year."
+            ),
+            "End Year": st.column_config.SelectboxColumn(
+                "End Year", options=year_options,
+                help="Ignored if frequency is One-time."
+            ),
+            "End Month": st.column_config.SelectboxColumn(
+                "End Month", options=month_options,
+                help="Ignored if frequency is One-time."
+            ),
+            "Interval (X Years)": st.column_config.NumberColumn(
+                "Interval (X Years)",
+                min_value=1,
+                step=1,
+                help="Used only if frequency is 'Every X Years'."
+            )
         },
-        width="stretch",   # replaces use_container_width
+        width="stretch",
         hide_index=True,
         num_rows="dynamic"
     )
-    
-    default_payments = default_payments[["Frequency","Amount ($)", "Start Year", "Start Month", "End Year", "End Month"]]
 
     st.markdown("---")
 
