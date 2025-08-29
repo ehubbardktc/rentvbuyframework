@@ -28,7 +28,7 @@ with st.expander("Welcome & Instructions", expanded=False):
     **Methodology:**
     - Biweekly payments: 26 payments/year (equivalent to 13 monthly payments).
     - Variable-rate mortgages adjust based on your rate schedule.
-    - Extra payments reduce principal and interest.
+    - Extra payments reduce principal and interest, applied consistently across scenarios.
     - Refinance transitions to new loan terms at the specified date.
     - PMI applies until equity reaches the specified threshold.
     """)
@@ -228,9 +228,10 @@ def expand_extra_payments(df, start_year, loan_years, frequency):
                     current += pd.DateOffset(years=interval)
 
         for apply_date in extra_dates:
+            # Find the closest payment date in the same month
             matching_dates = [pdate for pdate in payment_dates if pdate.year == apply_date.year and pdate.month == apply_date.month]
             if matching_dates:
-                apply_pdate = min(matching_dates)
+                apply_pdate = min(matching_dates, key=lambda x: abs((x - apply_date).days))
                 extra_schedule[apply_pdate] = extra_schedule.get(apply_pdate, 0) + amt
 
     return extra_schedule
@@ -339,7 +340,13 @@ def amortization_schedule(
         # Calculate payment components
         interest = round(balance * (current_rate / periods_per_year), 2)
         principal_paid = round(payment - interest, 2)
-        extra = extra_schedule.get(current_date, 0)
+        
+        # Apply extra payment (find closest date in extra_schedule)
+        extra = 0
+        if extra_schedule:
+            closest_date = min(extra_schedule.keys(), key=lambda x: abs((x - current_date).days), default=None)
+            if closest_date and abs((closest_date - current_date).days) <= (30 if periods_per_year == 12 else 14):
+                extra = extra_schedule.get(closest_date, 0)
 
         if principal_paid + extra > balance:
             principal_paid = round(balance - extra, 2)
@@ -500,23 +507,26 @@ interest_saved = monthly_schedule_df['Interest'].sum() - biweekly_schedule_df['I
 st.subheader("Mortgage Metrics")
 
 # Original Loan Metrics
-st.markdown("### Original Loan")
-cols = st.columns(5)
-cols[0].metric("Monthly Payment", f"${original_monthly_payment:,.2f}")
-cols[1].metric("Payment per Period", f"${original_payment_per_period:,.2f}")
-cols[2].metric("Total Interest", f"${original_total_interest:,.2f}")
-cols[3].metric("Total PMI", f"${original_total_pmi:,.2f}")
-cols[4].metric("Payoff Years", f"{original_payoff_years:.1f}")
+with st.container(border=True):
+    st.markdown("### Original Loan")
+    cols = st.columns(5)
+    cols[0].metric("Monthly Payment", f"${original_monthly_payment:,.2f}")
+    cols[1].metric("Payment per Period", f"${original_payment_per_period:,.2f}")
+    cols[2].metric("Total Interest", f"${original_total_interest:,.2f}")
+    cols[3].metric("Total PMI", f"${original_total_pmi:,.2f}")
+    cols[4].metric("Payoff Years", f"{original_payoff_years:.1f}")
+st.divider()
 
 # Refinance Metrics
 if refi_schedule_df is not None:
-    st.markdown("### Refinance Scenario")
-    cols = st.columns(5)
-    cols[0].metric("Monthly Payment", f"${refi_monthly_payment:,.2f}")
-    cols[1].metric("Payment per Period", f"${refi_payment_per_period:,.2f}")
-    cols[2].metric("Total Interest", f"${refi_total_interest:,.2f}")
-    cols[3].metric("Total PMI", f"${refi_total_pmi:,.2f}")
-    cols[4].metric("Payoff Years", f"{refi_payoff_years:.1f}")
+    with st.container(border=True):
+        st.markdown("### Refinance Scenario")
+        cols = st.columns(5)
+        cols[0].metric("Monthly Payment", f"${refi_monthly_payment:,.2f}")
+        cols[1].metric("Payment per Period", f"${refi_payment_per_period:,.2f}")
+        cols[2].metric("Total Interest", f"${refi_total_interest:,.2f}")
+        cols[3].metric("Total PMI", f"${refi_total_pmi:,.2f}")
+        cols[4].metric("Payoff Years", f"{refi_payoff_years:.1f}")
 
 # Amortization Schedules
 st.subheader("Amortization Schedules")
