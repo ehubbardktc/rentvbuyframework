@@ -1,3 +1,4 @@
+# ----------------------------- IMPORTS -----------------------------
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -12,62 +13,81 @@ st.title("Rent vs. Buy Decision Support Framework")
 # ----------------------------- INSTRUCTIONS -----------------------------
 with st.expander("Welcome & Instructions", expanded=False):
     st.markdown("""
-    This dashboard helps you decide whether to **rent or buy** your primary residence by analyzing mortgage costs and comparing total expenses.
+    This dashboard empowers you to make an informed **rent vs. buy** decision by analyzing all costs and asset growth associated with homeownership and renting, with stunning visualizations to highlight financial impacts.
 
     **Key Outputs:**
-    - Unified amortization schedule (monthly by default, biweekly if selected, with refinance transition if enabled).
-    - Metrics for the main scenario (with refinance if enabled).
-    - Savings from refinance (interest saved, payoff difference).
-    - Savings from biweekly payments (interest saved, payoff difference, shown if biweekly selected).
-    - Cost comparison: Total buying expenses vs. renting expenses over the evaluation period.
+    - **Unified Amortization Schedule**: Monthly or biweekly, with refinance transition (if enabled).
+    - **Main Metrics**: Payment details, total interest, PMI, and payoff time.
+    - **Refinance Analysis**: Interest, PMI, and payoff time savings, with breakeven point.
+    - **Biweekly Savings**: Interest saved and payoff reduction (if biweekly selected).
+    - **Cost Comparison**: Buying (P&I, PMI, taxes, insurance, maintenance, emergency, HOA, closing/points) vs. renting (rent, insurance, deposits, utilities, pet fees, application/renewal/parking).
+    - **Asset Comparison**: Homeowner wealth (home equity + VTI investments) vs. renter wealth (VTI investments from cost savings).
+    - **Visualizations**: Line charts for costs and assets, stacked bar/area charts for cost breakdowns, breakeven analysis, interactive tables.
 
     **How to Use:**
-    1. Enter purchase details, loan terms, and mortgage type.
-    2. Specify extra payments, buy points, and refinance options (if applicable).
-    3. Review metrics, schedule, and cost comparison.
-    4. Download the schedule for further analysis.
+    1. Enter purchase details, loan terms, mortgage type, and renting assumptions.
+    2. Specify extra payments, buy points, refinance options, and VTI return rate.
+    3. Explore metrics, schedules, savings, costs, and asset growth.
+    4. Interact with charts (hover for details) and download data.
 
     **Methodology:**
-    - Monthly payments: 12 payments/year (default).
-    - Biweekly payments: 26 payments/year (equivalent to 13 monthly payments, shown as a comparison if selected).
-    - Variable-rate mortgages adjust based on your rate schedule.
-    - Extra payments reduce principal and interest, applied consistently.
-    - Buy points reduce the mortgage rate (1 point = 1% of loan amount).
-    - Refinance integrates into the schedule, showing the transition (highlighted in blue) and savings.
-    - PMI applies until equity reaches the threshold.
-    - Buying costs: Mortgage (P&I + PMI + extra), taxes (increase with appreciation), insurance (increase with insurance rate), maintenance (increase with maintenance rate), emergency (one-time), points/upfront refinance costs.
-    - Renting costs: Monthly rent * 12, increasing annually.
+    - Payments: Monthly (12/year), Biweekly (26/year).
+    - Variable-rate mortgages adjust via rate schedules.
+    - Extra payments reduce principal consistently.
+    - Points reduce rates (1 point = 1% of loan amount).
+    - Costs: Buying includes direct (P&I) and indirect (PMI, taxes, etc.); renting includes rent, fees, etc.
+    - Investments: Cost differences (buying vs. renting) are invested in VTI (default 7% annual return).
+    - Equity: Homeowners gain equity from appreciation and principal; renters invest savings in VTI.
     """)
 
 # ----------------------------- SIDEBAR -----------------------------
 with st.sidebar:
-    st.image("https://via.placeholder.com/250", caption="EyesWideOpenLogo")  # Replace with actual logo URL
+    st.image("images/EyesWideOpenLogo.png", use_container_width=False, width=300)
     st.markdown("Tool developed by Eric Hubbard")
     st.markdown("[KnowTheCostFinancial.com](https://knowthecostfinancial.com)")
 
-    # 1️⃣ General Inputs
-    with st.expander("General Inputs", expanded=True):
-        eval_start_year = st.number_input("Evaluation Start Year", value=2025, step=1, min_value=2000, max_value=2100)
-        eval_end_year = st.number_input("Evaluation End Year", value=2070, step=1, min_value=eval_start_year, max_value=2100)
+    st.markdown("---")
 
-    # 2️⃣ Purchase Details
+    # Define defaults to avoid NameError
+    purchase_year = 2025  # Default value
+    loan_years = 30       # Default value
+
+    # Purchase Details
     with st.expander("Purchase Details", expanded=True):
-        purchase_year = st.number_input("Purchase Year", value=2025, step=1, min_value=eval_start_year, max_value=eval_end_year)
+        purchase_year = st.number_input("Purchase Year", value=purchase_year, step=1, min_value=2000, max_value=2100)
         purchase_price = st.number_input("Purchase Price ($)", value=500_000, step=10_000, min_value=0)
         down_payment = st.number_input("Down Payment ($)", value=100_000, step=1_000, min_value=0, max_value=purchase_price)
-        loan_amount = purchase_price - down_payment
+        closing_costs = st.number_input("Closing Costs ($)", value=5000, step=500, min_value=0)
+        closing_costs_method = st.radio("Closing Costs Method", ["Add to Loan Balance", "Pay Upfront"], index=0)
+        loan_amount = purchase_price - down_payment + (closing_costs if closing_costs_method == "Add to Loan Balance" else 0)
         percent_down = (down_payment / purchase_price * 100) if purchase_price > 0 else 0
         st.metric("Loan Amount", f"${loan_amount:,.0f}")
         st.metric("% Down Payment", f"{percent_down:.2f}%")
 
-    # 3️⃣ Loan Terms & Mortgage
+    # Loan Terms & Mortgage
     with st.expander("Loan Terms & Mortgage", expanded=True):
-        loan_years = st.number_input("Loan Length (Years)", value=30, step=1, min_value=1, max_value=50)
+        loan_years = st.number_input("Loan Length (Years)", value=loan_years, step=1, min_value=1, max_value=50)
         mortgage_rate = st.number_input("Mortgage Rate (%)", value=5.0, step=0.01, min_value=0.0, format="%.3f")
         pmi_rate = st.number_input("PMI Rate (%)", value=0.20, step=0.01, min_value=0.0)
         pmi_equity_threshold = st.number_input("PMI Paid Until Equity (%)", value=20, step=1, min_value=0, max_value=100)
         payment_frequency = st.radio("Payment Frequency", ["Monthly", "Biweekly"], index=0)
         mortgage_type = st.radio("Mortgage Type", ["Fixed", "Variable"], index=0)
+
+        # Buy Points Option
+        buy_points = st.checkbox("Buy Points to Reduce Rate?", value=False)
+        points = 0
+        discount_per_point = 0.25
+        points_cost_method = "Add to Loan Balance"
+        points_cost = 0
+        effective_rate = mortgage_rate
+        if buy_points:
+            points = st.number_input("Number of Points", value=1.0, step=0.25, min_value=0.0)
+            discount_per_point = st.number_input("Rate Discount per Point (%)", value=0.25, step=0.01, min_value=0.0)
+            points_cost_method = st.radio("Points Cost Method", ["Add to Loan Balance", "Pay Upfront"], index=0)
+            effective_rate = mortgage_rate - (discount_per_point * points)
+            points_cost = points * (purchase_price - down_payment) * 0.01
+            st.metric("Effective Rate After Points", f"{effective_rate:.3f}%")
+            st.metric("Points Cost", f"${points_cost:,.2f}")
 
         rate_schedule = None
         if mortgage_type == "Variable":
@@ -83,24 +103,14 @@ with st.sidebar:
                 num_rows="dynamic"
             )
 
-    # Buy Points Option
-    with st.expander("Buy Points Option", expanded=False):
-        buy_points = st.checkbox("Buy Points to Reduce Rate?", value=False)
-        points = 0
-        discount_per_point = 0.25
-        points_cost_method = "Add to Loan Balance"
-        points_cost = 0
-        effective_rate = mortgage_rate
-        if buy_points:
-            points = st.number_input("Number of Points", value=1.0, step=0.25, min_value=0.0)
-            discount_per_point = st.number_input("Rate Discount per Point (%)", value=0.25, step=0.01, min_value=0.0)
-            points_cost_method = st.radio("Points Cost Method", ["Add to Loan Balance", "Pay Upfront"], index=0)
-            effective_rate = mortgage_rate - (discount_per_point * points)
-            points_cost = points * (loan_amount * 0.01)  # 1 point = 1% of loan
-            st.metric("Effective Rate After Points", f"{effective_rate:.3f}%")
-            st.metric("Points Cost", f"${points_cost:,.2f}")
+    # General Inputs
+    with st.expander("General Inputs", expanded=True):
+        eval_start_year = st.number_input("Evaluation Start Year", value=2025, step=1, min_value=2000, max_value=2100)
+        eval_end_year = st.number_input("Evaluation End Year", value=2070, step=1, min_value=eval_start_year, max_value=2100)
+        if eval_end_year > purchase_year + loan_years:
+            st.warning(f"Note: Evaluation End Year ({eval_end_year}) is beyond the loan term ({purchase_year + loan_years}). Metrics will assume the mortgage is paid off, and costs will include ongoing expenses (taxes, insurance, etc.).")
 
-    # 4️⃣ Refinance Options
+    # Refinance Options
     with st.expander("Refinance Options", expanded=False):
         show_refinance = st.checkbox("Model a Refinance?", value=False)
         refi_rate = None
@@ -112,20 +122,37 @@ with st.sidebar:
         refi_mortgage_type = None
         refi_rate_schedule = None
         refi_periods_per_year = None
+        refi_buy_points = False
+        refi_points = 0
+        refi_discount_per_point = 0.25
+        refi_points_cost_method = "Add to Loan Balance"
+        refi_points_cost = 0
+        refi_effective_rate = None
 
         if show_refinance:
-            refi_rate = st.number_input("Refinance Rate (%)", value=5.0, step=0.01, min_value=0.0, format="%.3f")
-            refi_term_years = st.number_input("Refinance Term (Years)", value=30, step=1, min_value=1, max_value=50)
+            refi_rate = st.number_input("Refinance Rate (%)", value=4.0, step=0.01, min_value=0.0, format="%.3f")
+            refi_term_years = st.number_input("Refinance Term (Years)", value=20, step=1, min_value=1, max_value=50)
             refi_start_date = st.date_input("Refinance Start Date", min_value=datetime(purchase_year, 1, 1), max_value=datetime(purchase_year + loan_years, 12, 31))
-            refi_costs = st.number_input("Closing Costs ($)", value=3000, step=500, min_value=0)
+            refi_costs = st.number_input("Refinance Closing Costs ($)", value=3000, step=500, min_value=0)
             roll_costs = st.radio("Refinance Cost Method", ["Add to Loan Balance", "Pay Upfront"], index=0)
             refi_payment_frequency = st.radio("Refinance Payment Frequency", ["Monthly", "Biweekly"], index=0)
             refi_mortgage_type = st.radio("Refinance Mortgage Type", ["Fixed", "Variable"], index=0)
             refi_periods_per_year = 12 if refi_payment_frequency == "Monthly" else 26
+            refi_effective_rate = refi_rate
+
+            refi_buy_points = st.checkbox("Buy Points for Refinance?", value=False)
+            if refi_buy_points:
+                refi_points = st.number_input("Refinance Points", value=1.0, step=0.25, min_value=0.0)
+                refi_discount_per_point = st.number_input("Refinance Rate Discount per Point (%)", value=0.25, step=0.01, min_value=0.0)
+                refi_points_cost_method = st.radio("Refinance Points Cost Method", ["Add to Loan Balance", "Pay Upfront"], index=0)
+                refi_effective_rate = refi_rate - (refi_discount_per_point * refi_points)
+                refi_points_cost = refi_points * (purchase_price - down_payment) * 0.01
+                st.metric("Refinance Effective Rate After Points", f"{refi_effective_rate:.3f}%")
+                st.metric("Refinance Points Cost", f"${refi_points_cost:,.2f}")
 
             if refi_mortgage_type == "Variable":
                 st.subheader("Refinance Variable Rate Schedule")
-                default_refi_schedule = pd.DataFrame({"Year": [1, 5, 10], "Rate (%)": [refi_rate, 6.5, 7.0]})
+                default_refi_schedule = pd.DataFrame({"Year": [1, 5, 10], "Rate (%)": [refi_effective_rate, 5.5, 6.0]})
                 refi_rate_schedule = st.data_editor(
                     default_refi_schedule,
                     column_config={
@@ -136,7 +163,7 @@ with st.sidebar:
                     num_rows="dynamic"
                 )
 
-    # 5️⃣ Extra Principal Payments
+    # Extra Principal Payments
     with st.expander("Extra Principal Payments", expanded=False):
         default_payments = pd.DataFrame({
             "Amount ($)": [200, 10000],
@@ -162,11 +189,11 @@ with st.sidebar:
             num_rows="dynamic"
         )
 
-    # 6️⃣ Ongoing Expenses
+    # Ongoing Expenses
     with st.expander("Ongoing Expenses", expanded=False):
         default_property_expenses = pd.DataFrame({
-            "Category": ["Property Taxes", "Home Insurance", "Routine Maintenance"],
-            "Amount ($)": [8000, 1100, 6000]
+            "Category": ["Property Taxes", "Home Insurance", "Routine Maintenance", "HOA Fees"],
+            "Amount ($)": [8000, 1100, 6000, 1200]
         })
         edited_property_expenses = st.data_editor(
             default_property_expenses,
@@ -196,16 +223,27 @@ with st.sidebar:
             num_rows="dynamic"
         )
 
-    # 7️⃣ Appreciation & Growth
+    # Appreciation & Growth
     with st.expander("Appreciation & Growth", expanded=False):
         annual_appreciation = st.number_input("Annual Housing Appreciation (%)", value=3.5, step=0.1, min_value=0.0)
         annual_maintenance_increase = st.number_input("Annual Maintenance Increase (%)", value=3.0, step=0.1, min_value=0.0)
         annual_insurance_increase = st.number_input("Annual Insurance Increase (%)", value=3.0, step=0.1, min_value=0.0)
+        annual_hoa_increase = st.number_input("Annual HOA Increase (%)", value=3.0, step=0.1, min_value=0.0)
+        vti_annual_return = st.number_input("Annual VTI Return (%)", value=7.0, step=0.1, min_value=0.0, help="Annual return rate for investments in a low-cost index fund (e.g., VTI).")
 
-    # 8️⃣ Rental Assumptions
+    # Rental Assumptions
     with st.expander("Rental Assumptions", expanded=False):
         cost_of_rent = st.number_input("Initial Monthly Rent ($)", value=3000, step=50, min_value=0)
         annual_rent_increase = st.number_input("Annual Rent Increase (%)", value=4.0, step=0.1, min_value=0.0)
+        renters_insurance = st.number_input("Annual Renters' Insurance ($)", value=300, step=50, min_value=0)
+        security_deposit = st.number_input("Security Deposit ($)", value=3000, step=100, min_value=0)
+        annual_deposit_increase = st.number_input("Annual Deposit Increase (%)", value=4.0, step=0.1, min_value=0.0)
+        rental_utilities = st.number_input("Annual Rental Utilities ($)", value=2400, step=100, min_value=0)
+        pet_fee = st.number_input("Pet Fee/Deposit ($)", value=500, step=50, min_value=0)
+        pet_fee_frequency = st.radio("Pet Fee Frequency", ["One-time", "Annual"], index=0)
+        application_fee = st.number_input("Application Fee ($)", value=50, step=10, min_value=0)
+        lease_renewal_fee = st.number_input("Annual Lease Renewal Fee ($)", value=200, step=50, min_value=0)
+        parking_fee = st.number_input("Monthly Parking Fee ($)", value=100, step=10, min_value=0)
 
 # ----------------------------- FUNCTIONS -----------------------------
 @st.cache_data
@@ -416,51 +454,177 @@ def amortization_schedule(
 
     return df, df_monthly, df_annual
 
-def get_remaining_balance(schedule_df, refi_date):
-    refi_date = pd.to_datetime(refi_date)
-    mask = schedule_df["Date"] <= refi_date
-    return schedule_df.loc[mask, "Balance"].iloc[-1] if mask.any() else schedule_df["Balance"].iloc[0]
-
-def calculate_cost_comparison(annual_df, edited_property_expenses, edited_emergency_expenses, purchase_year, eval_start_year, eval_end_year, annual_appreciation, annual_insurance_increase, annual_maintenance_increase, cost_of_rent, annual_rent_increase, points_cost, points_cost_method, refi_costs, roll_costs):
-    years = range(max(purchase_year, eval_start_year), min(purchase_year + loan_years, eval_end_year) + 1)
+@st.cache_data
+def calculate_cost_comparison(
+    annual_df, 
+    edited_property_expenses, 
+    edited_emergency_expenses, 
+    purchase_year, 
+    eval_start_year, 
+    eval_end_year, 
+    annual_appreciation, 
+    annual_insurance_increase, 
+    annual_maintenance_increase, 
+    annual_hoa_increase, 
+    cost_of_rent, 
+    annual_rent_increase, 
+    renters_insurance, 
+    annual_deposit_increase, 
+    security_deposit, 
+    points_cost, 
+    points_cost_method, 
+    closing_costs, 
+    closing_costs_method, 
+    refi_costs, 
+    roll_costs, 
+    refi_points_cost, 
+    refi_points_cost_method,
+    rental_utilities,
+    pet_fee,
+    pet_fee_frequency,
+    application_fee,
+    lease_renewal_fee,
+    parking_fee,
+    purchase_price,
+    vti_annual_return=7.0
+):
+    # Extend years to include full evaluation range
+    years = range(eval_start_year, eval_end_year + 1)
     comparison_data = []
     cumulative_buy = 0
     cumulative_rent = 0
     taxes = edited_property_expenses[edited_property_expenses["Category"] == "Property Taxes"]["Amount ($)"].iloc[0] if "Property Taxes" in edited_property_expenses["Category"].values else 0
     insurance = edited_property_expenses[edited_property_expenses["Category"] == "Home Insurance"]["Amount ($)"].iloc[0] if "Home Insurance" in edited_property_expenses["Category"].values else 0
     maintenance = edited_property_expenses[edited_property_expenses["Category"] == "Routine Maintenance"]["Amount ($)"].iloc[0] if "Routine Maintenance" in edited_property_expenses["Category"].values else 0
+    hoa = edited_property_expenses[edited_property_expenses["Category"] == "HOA Fees"]["Amount ($)"].iloc[0] if "HOA Fees" in edited_property_expenses["Category"].values else 0
     current_rent = cost_of_rent
-    upfront_costs = points_cost if points_cost_method == "Pay Upfront" else 0
+    current_renters_insurance = renters_insurance
+    current_deposit = security_deposit
+    current_utilities = rental_utilities
+    current_pet_fee = pet_fee
+    current_parking = parking_fee
+    home_value = purchase_price
+    base_home_value = purchase_price
+    buy_investment = 0
+    rent_investment = 0
+
     for year in years:
         year_idx = year - purchase_year
-        mortgage_cost = annual_df[annual_df["Date"].dt.year == year]["Payment"].sum() + annual_df[annual_df["Date"].dt.year == year]["PMI"].sum() + annual_df[annual_df["Date"].dt.year == year]["Extra"].sum() if year in annual_df["Date"].dt.year.values else 0
+        # Only include P&I and PMI if year is within loan term and mortgage is not paid off
+        if year <= purchase_year + loan_years and year in annual_df["Date"].dt.year.values:
+            p_and_i = annual_df[annual_df["Date"].dt.year == year]["Payment"].sum() + annual_df[annual_df["Date"].dt.year == year]["Extra"].sum()
+            pmi = annual_df[annual_df["Date"].dt.year == year]["PMI"].sum()
+            year_balance = annual_df[annual_df["Date"].dt.year == year]["Balance"].iloc[-1]
+        else:
+            p_and_i = 0
+            pmi = 0
+            year_balance = 0  # Mortgage is paid off
+
         year_taxes = taxes * (1 + annual_appreciation / 100) ** year_idx
         year_insurance = insurance * (1 + annual_insurance_increase / 100) ** year_idx
         year_maintenance = maintenance * (1 + annual_maintenance_increase / 100) ** year_idx
+        year_hoa = hoa * (1 + annual_hoa_increase / 100) ** year_idx
         year_emergency = edited_emergency_expenses[edited_emergency_expenses["Year"] == year]["Amount ($)"].sum() if not edited_emergency_expenses.empty else 0
-        year_upfront = upfront_costs if year == purchase_year else (refi_costs if show_refinance and roll_costs == "Pay Upfront" and refi_start_date and refi_start_date.year == year else 0)
-        buy_cost = mortgage_cost + year_taxes + year_insurance + year_maintenance + year_emergency + year_upfront
-        rent_cost = current_rent * 12
+        year_closing = (closing_costs if year == purchase_year and closing_costs_method == "Pay Upfront" else 0) + (refi_costs if show_refinance and refi_start_date and refi_start_date.year == year and roll_costs == "Pay Upfront" else 0)
+        year_points = (points_cost if year == purchase_year and points_cost_method == "Pay Upfront" else 0) + (refi_points_cost if show_refinance and refi_start_date and refi_start_date.year == year and refi_points_cost_method == "Pay Upfront" else 0)
+        financing_method = (
+            f"{'Closing: Upfront' if year == purchase_year and closing_costs_method == 'Pay Upfront' else 'Closing: Financed' if year == purchase_year else ''}"
+            f"{'; ' if year == purchase_year and points_cost_method == 'Pay Upfront' else ''}{'Points: Upfront' if year == purchase_year and points_cost_method == 'Pay Upfront' else 'Points: Financed' if year == purchase_year else ''}"
+            f"{'; ' if show_refinance and refi_start_date and refi_start_date.year == year else ''}{'Refi Closing: Upfront' if show_refinance and refi_start_date and refi_start_date.year == year and roll_costs == 'Pay Upfront' else 'Refi Closing: Financed' if show_refinance and refi_start_date and refi_start_date.year == year else ''}"
+            f"{'; ' if show_refinance and refi_start_date and refi_start_date.year == year and refi_points_cost_method == 'Pay Upfront' else ''}{'Refi Points: Upfront' if show_refinance and refi_start_date and refi_start_date.year == year and refi_points_cost_method == 'Pay Upfront' else 'Refi Points: Financed' if show_refinance and refi_start_date and refi_start_date.year == year else ''}"
+        ).strip("; ")
+        indirect_costs = pmi + year_taxes + year_insurance + year_maintenance + year_hoa + year_emergency + year_closing + year_points
+        buy_cost = p_and_i + indirect_costs
+
+        year_rent = current_rent * 12
+        year_renters_insurance = current_renters_insurance
+        year_deposit = current_deposit if year == purchase_year else 0
+        year_utilities = current_utilities
+        year_pet_fee = current_pet_fee if pet_fee_frequency == "Annual" or (pet_fee_frequency == "One-time" and year == purchase_year) else 0
+        year_application_fee = application_fee if year == purchase_year else 0
+        year_renewal_fee = lease_renewal_fee if year > purchase_year else 0
+        year_parking = current_parking * 12
+        rent_cost = year_rent + year_renters_insurance + year_deposit + year_utilities + year_pet_fee + year_application_fee + year_renewal_fee + year_parking
+
         cumulative_buy += buy_cost
         cumulative_rent += rent_cost
+        home_value = home_value * (1 + annual_appreciation / 100)
+        appreciation = home_value - base_home_value
+        equity = home_value - year_balance if year_balance > 0 else home_value
+
+        # Investment Calculations
+        cost_difference = buy_cost - rent_cost
+        if cost_difference > 0:  # Renting is cheaper
+            rent_investment = rent_investment * (1 + vti_annual_return / 100) + cost_difference if cost_difference != 0 else rent_investment * (1 + vti_annual_return / 100)
+            buy_investment = buy_investment * (1 + vti_annual_return / 100)
+        else:  # Buying is cheaper
+            buy_investment = buy_investment * (1 + vti_annual_return / 100) + abs(cost_difference) if cost_difference != 0 else buy_investment * (1 + vti_annual_return / 100)
+            rent_investment = rent_investment * (1 + vti_annual_return / 100)
+
+        buy_total_assets = equity + buy_investment
+        rent_total_assets = rent_investment
+
         comparison_data.append({
             "Year": year,
-            "Buying Cost": buy_cost,
-            "Renting Cost": rent_cost,
+            "Direct Costs (P&I)": p_and_i,
+            "Indirect Costs": indirect_costs,
+            "PMI": pmi,
+            "Property Taxes": year_taxes,
+            "Home Insurance": year_insurance,
+            "Maintenance": year_maintenance,
+            "Emergency": year_emergency,
+            "HOA Fees": year_hoa,
+            "Closing Costs": year_closing,
+            "Points Costs": year_points,
+            "Financing Method": financing_method if financing_method else "None",
+            "Total Buying Cost": buy_cost,
+            "Total Renting Cost": rent_cost,
             "Cumulative Buying Cost": cumulative_buy,
-            "Cumulative Renting Cost": cumulative_rent
+            "Cumulative Renting Cost": cumulative_rent,
+            "Cost Difference (Buy - Rent)": cumulative_buy - cumulative_rent,
+            "Equity Gain": equity,
+            "Appreciation": appreciation,
+            "Buying Investment": buy_investment,
+            "Renting Investment": rent_investment,
+            "Buying Total Assets": buy_total_assets,
+            "Renting Total Assets": rent_total_assets
         })
+
         current_rent *= (1 + annual_rent_increase / 100)
+        current_renters_insurance *= (1 + annual_rent_increase / 100)
+        current_deposit *= (1 + annual_deposit_increase / 100)
+        current_utilities *= (1 + annual_rent_increase / 100)
+        current_pet_fee *= (1 + annual_deposit_increase / 100)
+        current_parking *= (1 + annual_rent_increase / 100)
 
     return pd.DataFrame(comparison_data)
+
+def get_remaining_balance(schedule_df, refi_date):
+    refi_date = pd.to_datetime(refi_date)
+    mask = schedule_df["Date"] <= refi_date
+    return schedule_df.loc[mask, "Balance"].iloc[-1] if mask.any() else schedule_df["Balance"].iloc[0]
+
+def calculate_breakeven(no_refi_monthly_df, main_monthly_df, refi_costs, refi_points_cost, roll_costs, refi_points_cost_method):
+    if roll_costs == "Pay Upfront" or refi_points_cost_method == "Pay Upfront":
+        total_costs = (refi_costs if roll_costs == "Pay Upfront" else 0) + (refi_points_cost if refi_points_cost_method == "Pay Upfront" else 0)
+        monthly_savings = (no_refi_monthly_df["Payment"].iloc[0] + no_refi_monthly_df["PMI"].iloc[0]) - (main_monthly_df["Payment"].iloc[0] + main_monthly_df["PMI"].iloc[0])
+        if monthly_savings > 0:
+            breakeven_months = total_costs / monthly_savings
+            breakeven_years = breakeven_months / 12
+            return breakeven_years, breakeven_months
+        else:
+            return None, None
+    return None, None
 
 # ----------------------------- CALCULATIONS -----------------------------
 # Adjust principal and rate based on points
 effective_principal = loan_amount + (points_cost if points_cost_method == "Add to Loan Balance" else 0)
 effective_mortgage_rate = effective_rate
 
-# Extra payments schedule based on selected frequency
+# Extra payments schedules
 extra_schedule = expand_extra_payments(extra_payments, purchase_year, loan_years, payment_frequency)
+extra_schedule_monthly = expand_extra_payments(extra_payments, purchase_year, loan_years, "Monthly")
+extra_schedule_biweekly = expand_extra_payments(extra_payments, purchase_year, loan_years, "Biweekly")
 
 # No-refi schedule (always monthly, for refinance comparison)
 no_refi_schedule_df, no_refi_monthly_df, no_refi_annual_df = amortization_schedule(
@@ -468,7 +632,7 @@ no_refi_schedule_df, no_refi_monthly_df, no_refi_annual_df = amortization_schedu
     years=loan_years,
     periods_per_year=12,
     start_date=f"{purchase_year}-01-01",
-    extra_schedule=expand_extra_payments(extra_payments, purchase_year, loan_years, "Monthly"),
+    extra_schedule=extra_schedule_monthly,
     rate_schedule=rate_schedule,
     mortgage_type=mortgage_type,
     purchase_year=purchase_year,
@@ -478,13 +642,18 @@ no_refi_schedule_df, no_refi_monthly_df, no_refi_annual_df = amortization_schedu
     purchase_price=purchase_price
 )
 
+# Refinance principal
+refi_effective_principal = None
+if show_refinance:
+    refi_effective_principal = get_remaining_balance(no_refi_schedule_df, refi_start_date) + (refi_costs if roll_costs == "Add to Loan Balance" else 0) + (refi_points_cost if refi_points_cost_method == "Add to Loan Balance" else 0)
+
 # Monthly comparison schedule (for biweekly savings)
-monthly_comparison_df, _, _ = amortization_schedule(
+monthly_comparison_df, monthly_comparison_monthly_df, _ = amortization_schedule(
     principal=effective_principal,
     years=loan_years,
     periods_per_year=12,
     start_date=f"{purchase_year}-01-01",
-    extra_schedule=expand_extra_payments(extra_payments, purchase_year, loan_years, "Monthly"),
+    extra_schedule=extra_schedule_monthly,
     rate_schedule=rate_schedule,
     mortgage_type=mortgage_type,
     purchase_year=purchase_year,
@@ -493,12 +662,12 @@ monthly_comparison_df, _, _ = amortization_schedule(
     pmi_equity_threshold=pmi_equity_threshold,
     purchase_price=purchase_price,
     refi_start_date=refi_start_date if show_refinance else None,
-    refi_principal=(get_remaining_balance(no_refi_schedule_df, refi_start_date) + (refi_costs if roll_costs == "Add to Loan Balance" else 0)) if show_refinance and refi_start_date else None,
+    refi_principal=refi_effective_principal,
     refi_years=refi_term_years,
     refi_periods_per_year=refi_periods_per_year if show_refinance else None,
     refi_rate_schedule=refi_rate_schedule,
     refi_mortgage_type=refi_mortgage_type,
-    refi_mortgage_rate=refi_rate
+    refi_mortgage_rate=refi_effective_rate
 )
 
 # Biweekly comparison schedule (for monthly main schedule)
@@ -507,7 +676,7 @@ biweekly_schedule_df, _, _ = amortization_schedule(
     years=loan_years,
     periods_per_year=26,
     start_date=f"{purchase_year}-01-01",
-    extra_schedule=expand_extra_payments(extra_payments, purchase_year, loan_years, "Biweekly"),
+    extra_schedule=extra_schedule_biweekly,
     rate_schedule=rate_schedule,
     mortgage_type=mortgage_type,
     purchase_year=purchase_year,
@@ -516,15 +685,15 @@ biweekly_schedule_df, _, _ = amortization_schedule(
     pmi_equity_threshold=pmi_equity_threshold,
     purchase_price=purchase_price,
     refi_start_date=refi_start_date if show_refinance else None,
-    refi_principal=(get_remaining_balance(no_refi_schedule_df, refi_start_date) + (refi_costs if roll_costs == "Add to Loan Balance" else 0)) if show_refinance and refi_start_date else None,
+    refi_principal=refi_effective_principal,
     refi_years=refi_term_years,
     refi_periods_per_year=refi_periods_per_year if show_refinance else None,
     refi_rate_schedule=refi_rate_schedule,
     refi_mortgage_type=refi_mortgage_type,
-    refi_mortgage_rate=refi_rate
+    refi_mortgage_rate=refi_effective_rate
 )
 
-# Main schedule (monthly by default, biweekly if selected)
+# Main schedule (monthly or biweekly)
 main_periods_per_year = 12 if payment_frequency == "Monthly" else 26
 main_schedule_df, main_monthly_df, main_annual_df = amortization_schedule(
     principal=effective_principal,
@@ -540,31 +709,34 @@ main_schedule_df, main_monthly_df, main_annual_df = amortization_schedule(
     pmi_equity_threshold=pmi_equity_threshold,
     purchase_price=purchase_price,
     refi_start_date=refi_start_date if show_refinance else None,
-    refi_principal=(get_remaining_balance(no_refi_schedule_df, refi_start_date) + (refi_costs if roll_costs == "Add to Loan Balance" else 0)) if show_refinance and refi_start_date else None,
+    refi_principal=refi_effective_principal,
     refi_years=refi_term_years,
     refi_periods_per_year=refi_periods_per_year if show_refinance else None,
     refi_rate_schedule=refi_rate_schedule,
     refi_mortgage_type=refi_mortgage_type,
-    refi_mortgage_rate=refi_rate
+    refi_mortgage_rate=refi_effective_rate
 )
 
-# Main Metrics (main schedule)
+# Main Metrics
 monthly_payment = main_schedule_df['Payment'].iloc[0] if main_periods_per_year == 12 else main_schedule_df['Payment'].iloc[0] * 26 / 12
 payment_per_period = main_schedule_df['Payment'].iloc[0]
 total_interest = main_schedule_df['Interest'].sum()
 total_pmi = main_schedule_df['PMI'].sum()
 payoff_years = len(main_schedule_df) / main_periods_per_year
 
-# Savings from refinance (if enabled)
+# Refinance Savings and Breakeven
 interest_saved_refi = 0
 pmi_saved_refi = 0
 payoff_difference_refi = 0
+breakeven_years = None
+breakeven_months = None
 if show_refinance and refi_start_date:
     interest_saved_refi = no_refi_schedule_df['Interest'].sum() - total_interest
     pmi_saved_refi = no_refi_schedule_df['PMI'].sum() - total_pmi
     payoff_difference_refi = len(no_refi_schedule_df) / 12 - payoff_years
+    breakeven_years, breakeven_months = calculate_breakeven(no_refi_monthly_df, main_monthly_df, refi_costs, refi_points_cost, roll_costs, refi_points_cost_method)
 
-# Savings from biweekly (if biweekly selected)
+# Biweekly Savings
 interest_saved_biweekly = 0
 payoff_difference_biweekly = 0
 if payment_frequency == "Biweekly":
@@ -582,13 +754,32 @@ cost_comparison_df = calculate_cost_comparison(
     annual_appreciation, 
     annual_insurance_increase, 
     annual_maintenance_increase, 
+    annual_hoa_increase, 
     cost_of_rent, 
-    annual_rent_increase,
-    points_cost,
-    points_cost_method,
-    refi_costs,
-    roll_costs
+    annual_rent_increase, 
+    renters_insurance, 
+    annual_deposit_increase, 
+    security_deposit, 
+    points_cost, 
+    points_cost_method, 
+    closing_costs, 
+    closing_costs_method, 
+    refi_costs, 
+    roll_costs, 
+    refi_points_cost, 
+    refi_points_cost_method,
+    rental_utilities,
+    pet_fee,
+    pet_fee_frequency,
+    application_fee,
+    lease_renewal_fee,
+    parking_fee,
+    purchase_price,
+    vti_annual_return=7.0
 )
+
+# Calculate Payoff Year
+payoff_year = main_annual_df[main_annual_df["Balance"] <= 0]["Date"].dt.year.min() if (main_annual_df["Balance"] <= 0).any() else None
 
 # ----------------------------- DISPLAY -----------------------------
 st.subheader("Mortgage Metrics")
@@ -602,9 +793,9 @@ with st.container(border=True):
     cols[4].metric("Payoff Years", f"{payoff_years:.1f}")
 
 if show_refinance and refi_start_date:
-    st.subheader("Refinance Savings")
+    st.subheader("Refinance Savings and Breakeven")
     with st.container(border=True):
-        cols = st.columns(3)
+        cols = st.columns(4)
         if interest_saved_refi >= 0:
             cols[0].metric("Interest Saved", f"${interest_saved_refi:,.2f}")
         else:
@@ -613,7 +804,11 @@ if show_refinance and refi_start_date:
             cols[1].metric("PMI Saved", f"${pmi_saved_refi:,.2f}")
         else:
             cols[1].metric("Additional PMI", f"${abs(pmi_saved_refi):,.2f}")
-        cols[2].metric("Payoff Time Difference", f"{abs(payoff_difference_refi):.1f} years {'shorter' if payoff_difference_refi >= 0 else 'longer'}")
+        cols[2].metric("Payoff Time Difference", f"{abs(payoff_difference_refi):,.1f} years {'shorter' if payoff_difference_refi >= 0 else 'longer'}")
+        if breakeven_years is not None:
+            cols[3].metric("Breakeven Point", f"{breakeven_years:.1f} years ({breakeven_months:.1f} months)")
+        else:
+            cols[3].metric("Breakeven Point", "Not applicable (no savings)")
 
 if payment_frequency == "Biweekly":
     st.subheader("Biweekly Savings (Compared to Monthly)")
@@ -623,10 +818,56 @@ if payment_frequency == "Biweekly":
             cols[0].metric("Interest Saved", f"${interest_saved_biweekly:,.2f}")
         else:
             cols[0].metric("Additional Interest", f"${abs(interest_saved_biweekly):,.2f}")
-        cols[1].metric("Payoff Time Difference", f"{abs(payoff_difference_biweekly):.1f} years {'shorter' if payoff_difference_biweekly >= 0 else 'longer'}")
+        cols[1].metric("Payoff Time Difference", f"{abs(payoff_difference_biweekly):,.1f} years {'shorter' if payoff_difference_biweekly >= 0 else 'longer'}")
+
+st.subheader("Equity and Wealth Metrics")
+with st.container(border=True):
+    st.markdown(f"**Note**: Metrics are for the final evaluation year ({eval_end_year}). Buying wealth includes home equity (home value minus loan balance), appreciation (increase in home value), and VTI investments (from cost savings when buying is cheaper). Renting wealth includes VTI investments (from cost savings when renting is cheaper).")
+    final_year = eval_end_year
+    final_data = cost_comparison_df[cost_comparison_df["Year"] == final_year]
+    
+    if not final_data.empty:
+        final_balance = main_annual_df[main_annual_df["Date"].dt.year == final_year]["Balance"].iloc[-1] if final_year in main_annual_df["Date"].dt.year.values else 0
+        final_home_value = purchase_price * (1 + annual_appreciation / 100) ** (final_year - purchase_year)
+        equity_gain = final_data["Equity Gain"].iloc[0]
+        appreciation = final_data["Appreciation"].iloc[0]
+        buying_investment = final_data["Buying Investment"].iloc[0]
+        renting_investment = final_data["Renting Investment"].iloc[0]
+        buying_assets = final_data["Buying Total Assets"].iloc[0]
+        renting_assets = final_data["Renting Total Assets"].iloc[0]
+        wealth_difference = buying_assets - renting_assets
+    else:
+        # Fallback calculations
+        year_idx = final_year - purchase_year
+        final_balance = 0
+        final_home_value = purchase_price * (1 + annual_appreciation / 100) ** year_idx
+        equity_gain = final_home_value
+        appreciation = final_home_value - purchase_price
+        last_year_data = cost_comparison_df[cost_comparison_df["Year"] == cost_comparison_df["Year"].max()]
+        if not last_year_data.empty:
+            last_year_idx = cost_comparison_df["Year"].max() - purchase_year
+            years_diff = year_idx - last_year_idx
+            buying_investment = last_year_data["Buying Investment"].iloc[0] * (1 + vti_annual_return / 100) ** years_diff
+            renting_investment = last_year_data["Renting Investment"].iloc[0] * (1 + vti_annual_return / 100) ** years_diff
+        else:
+            buying_investment = 0
+            renting_investment = 0
+        buying_assets = equity_gain + buying_investment
+        renting_assets = renting_investment
+        wealth_difference = buying_assets - renting_assets
+
+    # Display metrics side-by-side
+    cols = st.columns(7)
+    cols[0].metric(f"Buying Wealth ({final_year})", f"${buying_assets:,.2f}", help=f"Home equity plus VTI investments (at {vti_annual_return}% annual return).")
+    cols[1].metric(f"Equity ({final_year})", f"${equity_gain:,.2f}", help=f"Home value (${final_home_value:,.2f}) minus loan balance (${final_balance:,.2f}).")
+    cols[2].metric(f"Appreciation ({final_year})", f"${appreciation:,.2f}", help=f"Increase in home value at {annual_appreciation}% annual return.")
+    cols[3].metric(f"Buying Investment ({final_year})", f"${buying_investment:,.2f}", help=f"VTI investments from cost savings at {vti_annual_return}% annual return.")
+    cols[4].metric(f"Renting Wealth ({final_year})", f"${renting_assets:,.2f}", help=f"VTI investments from cost savings (at {vti_annual_return}% annual return).")
+    cols[5].metric(f"Renting Investment ({final_year})", f"${renting_investment:,.2f}", help=f"VTI investments from cost savings at {vti_annual_return}% annual return.")
+    cols[6].metric(f"Wealth Difference ({final_year})", f"${wealth_difference:,.2f}", delta_color="normal", help="Positive means buying yields more wealth; negative means renting yields more.")
 
 st.subheader("Amortization Schedule")
-st.markdown("**Note**: 'Loan Type' column indicates 'Original' or 'Refinance' (highlighted in blue). 'Effective Rate (%)' shows the interest rate applied each period, reflecting points or variable rates.")
+st.markdown("**Note**: 'Loan Type' column indicates 'Original' or 'Refinance' (highlighted in blue). 'Effective Rate (%)' shows the interest rate applied, reflecting points or variable rates.")
 tab1, tab2, tab3, tab4 = st.tabs(["Annual", "Monthly", "Balance Over Time", "Payment Frequency Comparison"])
 
 with tab1:
@@ -672,9 +913,7 @@ with tab3:
         })
         chart_data = pd.concat([chart_data, no_refi_chart_data])
 
-    # Truncate to the shorter schedule's end date
-    max_date = chart_data.groupby('Schedule')['Date'].max().min()
-    chart_data = chart_data[chart_data["Date"] <= max_date]
+    chart_data = chart_data[chart_data["Date"].dt.year <= eval_end_year]
 
     line = alt.Chart(chart_data).mark_line().encode(
         x='Date:T',
@@ -685,7 +924,7 @@ with tab3:
             alt.value([5, 5]),
             alt.value([0])
         ),
-        tooltip=['Date', 'Balance', 'Schedule']
+        tooltip=['Date', alt.Tooltip('Balance:Q', format='$,.2f'), 'Schedule']
     ).interactive()
 
     if show_refinance and refi_start_date:
@@ -716,9 +955,7 @@ with tab4:
     })
     chart_data = pd.concat([chart_data, comparison_chart_data])
 
-    # Truncate to the shorter schedule's end date
-    max_date = chart_data.groupby('Schedule')['Date'].max().min()
-    chart_data = chart_data[chart_data["Date"] <= max_date]
+    chart_data = chart_data[chart_data["Date"].dt.year <= eval_end_year]
 
     line = alt.Chart(chart_data).mark_line().encode(
         x='Date:T',
@@ -729,26 +966,527 @@ with tab4:
             alt.value([5, 5]),
             alt.value([0])
         ),
-        tooltip=['Date', 'Balance', 'Schedule']
+        tooltip=['Date', alt.Tooltip('Balance:Q', format='$,.2f'), 'Schedule']
     ).interactive()
 
     st.altair_chart(line, use_container_width=True)
 
+# Cost Comparison and Visualizations
 st.subheader("Cost Comparison: Buy vs. Rent")
+st.markdown("**Note**: Buying costs include Direct (P&I) and Indirect (PMI, Taxes, Insurance, Maintenance, Emergency, HOA, all Closing/Points). Financing Method indicates whether costs are 'Upfront' or 'Financed'. Renting includes Rent, Renters' Insurance, Deposits, Utilities, Pet Fees, Application/Renewal/Parking Fees.")
+
+# Add Rent Cost Components to cost_comparison_df
+cost_comparison_df["Rent"] = cost_comparison_df["Year"].apply(lambda y: cost_of_rent * 12 * (1 + annual_rent_increase / 100) ** (y - purchase_year))
+cost_comparison_df["Renters Insurance"] = cost_comparison_df["Year"].apply(lambda y: renters_insurance * (1 + annual_rent_increase / 100) ** (y - purchase_year))
+cost_comparison_df["Security Deposit"] = cost_comparison_df["Year"].apply(lambda y: security_deposit * (1 + annual_deposit_increase / 100) ** (y - purchase_year) if y == purchase_year else 0)
+cost_comparison_df["Utilities"] = cost_comparison_df["Year"].apply(lambda y: rental_utilities * (1 + annual_rent_increase / 100) ** (y - purchase_year))
+cost_comparison_df["Pet Fees"] = cost_comparison_df["Year"].apply(lambda y: pet_fee * (1 + annual_deposit_increase / 100) ** (y - purchase_year) if pet_fee_frequency == "Annual" or (pet_fee_frequency == "One-time" and y == purchase_year) else 0)
+cost_comparison_df["Application Fee"] = cost_comparison_df["Year"].apply(lambda y: application_fee if y == purchase_year else 0)
+cost_comparison_df["Lease Renewal Fee"] = cost_comparison_df["Year"].apply(lambda y: lease_renewal_fee if y > purchase_year else 0)
+cost_comparison_df["Parking Fee"] = cost_comparison_df["Year"].apply(lambda y: parking_fee * 12 * (1 + annual_rent_increase / 100) ** (y - purchase_year))
+
+# Stacked Bar Charts for Cost Breakdown
+buy_stack_data = cost_comparison_df.melt(
+    id_vars=['Year'],
+    value_vars=['Direct Costs (P&I)', 'PMI', 'Property Taxes', 'Home Insurance', 'Maintenance', 'Emergency', 'HOA Fees', 'Closing Costs', 'Points Costs'],
+    var_name='Category',
+    value_name='Cost'
+)
+buy_stack_data = buy_stack_data[buy_stack_data['Cost'] > 0]
+
+rent_stack_data = cost_comparison_df.melt(
+    id_vars=['Year'],
+    value_vars=['Rent', 'Renters Insurance', 'Security Deposit', 'Utilities', 'Pet Fees', 'Application Fee', 'Lease Renewal Fee', 'Parking Fee'],
+    var_name='Category',
+    value_name='Cost'
+)
+rent_stack_data = rent_stack_data[rent_stack_data['Cost'] > 0]
+
+buy_bar = alt.Chart(buy_stack_data).mark_bar().encode(
+    x=alt.X('Year:O', title='Year', scale=alt.Scale(domain=list(range(eval_start_year, eval_end_year + 1)))),
+    y=alt.Y('Cost:Q', stack='zero', title='Annual Cost ($)'),
+    color=alt.Color('Category:N', legend=alt.Legend(title="Buying Costs"), scale=alt.Scale(scheme='blues')),
+    tooltip=['Year', 'Category', alt.Tooltip('Cost:Q', format='$,.2f')]
+).properties(
+    title="Buying Cost Breakdown Over Time",
+    width=400,
+    height=400
+)
+
+rent_bar = alt.Chart(rent_stack_data).mark_bar().encode(
+    x=alt.X('Year:O', title='Year', scale=alt.Scale(domain=list(range(eval_start_year, eval_end_year + 1)))),
+    y=alt.Y('Cost:Q', stack='zero', title='Annual Cost ($)'),
+    color=alt.Color('Category:N', legend=alt.Legend(title="Renting Costs"), scale=alt.Scale(scheme='greens')),
+    tooltip=['Year', 'Category', alt.Tooltip('Cost:Q', format='$,.2f')]
+).properties(
+    title="Renting Cost Breakdown Over Time",
+    width=400,
+    height=400
+)
+
+st.altair_chart(alt.hconcat(buy_bar, rent_bar), use_container_width=True)
+
 st.dataframe(
     cost_comparison_df.style.format({
-        "Buying Cost": "${:,.2f}",
-        "Renting Cost": "${:,.2f}",
+        "Direct Costs (P&I)": "${:,.2f}",
+        "Indirect Costs": "${:,.2f}",
+        "PMI": "${:,.2f}",
+        "Property Taxes": "${:,.2f}",
+        "Home Insurance": "${:,.2f}",
+        "Maintenance": "${:,.2f}",
+        "Emergency": "${:,.2f}",
+        "HOA Fees": "${:,.2f}",
+        "Closing Costs": "${:,.2f}",
+        "Points Costs": "${:,.2f}",
+        "Total Buying Cost": "${:,.2f}",
+        "Total Renting Cost": "${:,.2f}",
         "Cumulative Buying Cost": "${:,.2f}",
-        "Cumulative Renting Cost": "${:,.2f}"
+        "Cumulative Renting Cost": "${:,.2f}",
+        "Cost Difference (Buy - Rent)": "${:,.2f}",
+        "Equity Gain": "${:,.2f}",
+        "Appreciation": "${:,.2f}",
+        "Buying Investment": "${:,.2f}",
+        "Renting Investment": "${:,.2f}",
+        "Buying Total Assets": "${:,.2f}",
+        "Renting Total Assets": "${:,.2f}",
+        "Rent": "${:,.2f}",
+        "Renters Insurance": "${:,.2f}",
+        "Security Deposit": "${:,.2f}",
+        "Utilities": "${:,.2f}",
+        "Pet Fees": "${:,.2f}",
+        "Application Fee": "${:,.2f}",
+        "Lease Renewal Fee": "${:,.2f}",
+        "Parking Fee": "${:,.2f}"
     })
 )
 
-# ------------------------- DOWNLOAD -----------------------
-st.subheader("Download Schedule")
-st.download_button(
-    label="Download Amortization Schedule",
-    data=main_schedule_df.to_csv(index=False),
-    file_name="amortization_schedule.csv",
-    mime="text/csv"
+# Total Costs Line Chart
+st.subheader("Total Costs Over Time")
+total_costs_data = pd.concat([
+    pd.DataFrame({
+        "Year": cost_comparison_df["Year"],
+        "Cost": cost_comparison_df["Cumulative Buying Cost"],
+        "Type": "Buying"
+    }),
+    pd.DataFrame({
+        "Year": cost_comparison_df["Year"],
+        "Cost": cost_comparison_df["Cumulative Renting Cost"],
+        "Type": "Renting"
+    })
+])
+line_chart = alt.Chart(total_costs_data).mark_line(point=True).encode(
+    x=alt.X('Year:O', title='Year', scale=alt.Scale(domain=list(range(eval_start_year, eval_end_year + 1)))),
+    y=alt.Y('Cost:Q', title='Cumulative Cost ($)'),
+    color=alt.Color('Type:N', legend=alt.Legend(title="Cost Type", orient='top-left'), scale=alt.Scale(domain=['Buying', 'Renting'], range=['#1f77b4', '#2ca02c'])),
+    tooltip=['Year', alt.Tooltip('Cost:Q', format='$,.2f'), 'Type']
+).interactive()
+
+area_chart = alt.Chart(total_costs_data).mark_area(opacity=0.2).encode(
+    x=alt.X('Year:O', scale=alt.Scale(domain=list(range(eval_start_year, eval_end_year + 1)))),
+    y=alt.Y('Cost:Q', stack=None),
+    color=alt.Color('Type:N', scale=alt.Scale(domain=['Buying', 'Renting'], range=['#1f77b4', '#2ca02c']))
 )
+
+vlines = []
+if show_refinance and refi_start_date:
+    vlines.append(alt.Chart(pd.DataFrame({'Year': [refi_start_date.year]})).mark_rule(color='red', strokeDash=[5,5]).encode(
+        x='Year:O',
+        tooltip=['Year', alt.Tooltip('Year:O', title='Refinance Year')]
+    ))
+vlines.append(alt.Chart(pd.DataFrame({'Year': [purchase_year]})).mark_rule(color='purple', strokeDash=[5,5]).encode(
+    x='Year:O',
+    tooltip=['Year', alt.Tooltip('Year:O', title='Purchase Year')]
+))
+if payoff_year is not None and eval_start_year <= payoff_year <= eval_end_year:
+    vlines.append(alt.Chart(pd.DataFrame({'Year': [payoff_year]})).mark_rule(color='green', strokeDash=[5,5]).encode(
+        x='Year:O',
+        tooltip=['Year', alt.Tooltip('Year:O', title='Payoff Year')]
+    ))
+
+chart = alt.layer(area_chart, line_chart, *vlines).configure_axis(
+    labelAngle=45
+).properties(
+    title="Cumulative Buying vs. Renting Costs",
+    width=800,
+    height=400
+)
+
+st.altair_chart(chart, use_container_width=True)
+
+# Cost Difference Line Chart
+st.subheader("Cost Difference (Buying - Renting)")
+difference_data = cost_comparison_df[['Year', 'Cost Difference (Buy - Rent)', 'Cumulative Buying Cost', 'Cumulative Renting Cost']].copy()
+difference_data['Color'] = difference_data['Cost Difference (Buy - Rent)'].apply(lambda x: '#ff7f0e' if x > 0 else '#2ca02c')
+difference_chart = alt.Chart(difference_data).mark_line(point=True).encode(
+    x=alt.X('Year:O', title='Year', scale=alt.Scale(domain=list(range(eval_start_year, eval_end_year + 1)))),
+    y=alt.Y('Cost Difference (Buy - Rent):Q', title='Cost Difference ($)'),
+    color=alt.Color('Color:N', scale=None),
+    tooltip=['Year', alt.Tooltip('Cost Difference (Buy - Rent):Q', format='$,.2f'), alt.Tooltip('Cumulative Buying Cost:Q', format='$,.2f'), alt.Tooltip('Cumulative Renting Cost:Q', format='$,.2f')]
+).interactive()
+
+area_chart = alt.Chart(difference_data).mark_area(opacity=0.3).encode(
+    x=alt.X('Year:O', scale=alt.Scale(domain=list(range(eval_start_year, eval_end_year + 1)))),
+    y=alt.Y('Cost Difference (Buy - Rent):Q'),
+    color=alt.Color('Color:N', scale=None)
+)
+
+zero_line = alt.Chart(pd.DataFrame({'y': [0]})).mark_rule(color='black', strokeDash=[3,3]).encode(
+    y='y:Q'
+)
+
+vlines = []
+if show_refinance and refi_start_date:
+    vlines.append(alt.Chart(pd.DataFrame({'Year': [refi_start_date.year]})).mark_rule(color='red', strokeDash=[5,5]).encode(
+        x='Year:O',
+        tooltip=['Year', alt.Tooltip('Year:O', title='Refinance Year')]
+    ))
+if payoff_year is not None and eval_start_year <= payoff_year <= eval_end_year:
+    vlines.append(alt.Chart(pd.DataFrame({'Year': [payoff_year]})).mark_rule(color='green', strokeDash=[5,5]).encode(
+        x='Year:O',
+        tooltip=['Year', alt.Tooltip('Year:O', title='Payoff Year')]
+    ))
+
+chart = alt.layer(area_chart, difference_chart, zero_line, *vlines).configure_axis(
+    labelAngle=45
+).properties(
+    title="Cost Difference (Buying - Renting) Over Time",
+    width=800,
+    height=400
+)
+
+st.altair_chart(chart, use_container_width=True)
+
+# Asset Comparison Chart
+st.subheader("Asset Comparison: Buying vs. Renting")
+st.markdown(f"**Note**: Buying assets include home equity (home value minus loan balance) plus investments in a low-cost index fund (VTI) from cost savings when buying is cheaper. Renting assets include investments in VTI from cost savings when renting is cheaper, assuming {vti_annual_return}% annual return.")
+
+asset_data = pd.concat([
+    pd.DataFrame({
+        "Year": cost_comparison_df["Year"],
+        "Assets": cost_comparison_df["Buying Total Assets"],
+        "Type": "Buying (Equity + Investment)"
+    }),
+    pd.DataFrame({
+        "Year": cost_comparison_df["Year"],
+        "Assets": cost_comparison_df["Renting Total Assets"],
+        "Type": "Renting (Investment)"
+    })
+])
+asset_chart = alt.Chart(asset_data).mark_line(point=True).encode(
+    x=alt.X('Year:O', title='Year', scale=alt.Scale(domain=list(range(eval_start_year, eval_end_year + 1)))),
+    y=alt.Y('Assets:Q', title='Total Assets ($)'),
+    color=alt.Color('Type:N', legend=alt.Legend(title="Asset Type", orient='top-left'), scale=alt.Scale(domain=['Buying (Equity + Investment)', 'Renting (Investment)'], range=['#1f77b4', '#2ca02c'])),
+    tooltip=['Year', alt.Tooltip('Assets:Q', format='$,.2f'), 'Type']
+).interactive()
+
+area_chart = alt.Chart(asset_data).mark_area(opacity=0.2).encode(
+    x=alt.X('Year:O', scale=alt.Scale(domain=list(range(eval_start_year, eval_end_year + 1)))),
+    y=alt.Y('Assets:Q', stack=None),
+    color=alt.Color('Type:N', scale=alt.Scale(domain=['Buying (Equity + Investment)', 'Renting (Investment)'], range=['#1f77b4', '#2ca02c']))
+)
+
+equity_chart = alt.Chart(cost_comparison_df).mark_line(strokeDash=[5,5], color='#ff7f0e').encode(
+    x=alt.X('Year:O', scale=alt.Scale(domain=list(range(eval_start_year, eval_end_year + 1)))),
+    y=alt.Y('Equity Gain:Q', title='Equity Gain ($)', axis=alt.Axis(titleColor='#ff7f0e')),
+    tooltip=['Year', alt.Tooltip('Equity Gain:Q', format='$,.2f')]
+).interactive()
+
+vlines = []
+if show_refinance and refi_start_date:
+    vlines.append(alt.Chart(pd.DataFrame({'Year': [refi_start_date.year]})).mark_rule(color='red', strokeDash=[5,5]).encode(
+        x='Year:O',
+        tooltip=['Year', alt.Tooltip('Year:O', title='Refinance Year')]
+    ))
+vlines.append(alt.Chart(pd.DataFrame({'Year': [purchase_year]})).mark_rule(color='purple', strokeDash=[5,5]).encode(
+    x='Year:O',
+    tooltip=['Year', alt.Tooltip('Year:O', title='Purchase Year')]
+))
+if payoff_year is not None and eval_start_year <= payoff_year <= eval_end_year:
+    vlines.append(alt.Chart(pd.DataFrame({'Year': [payoff_year]})).mark_rule(color='green', strokeDash=[5,5]).encode(
+        x='Year:O',
+        tooltip=['Year', alt.Tooltip('Year:O', title='Payoff Year')]
+    ))
+
+chart = alt.layer(area_chart, asset_chart, equity_chart, *vlines).configure_axis(
+    labelAngle=45
+).properties(
+    title="Buying vs. Renting Assets Over Time",
+    width=800,
+    height=400
+)
+
+st.altair_chart(chart, use_container_width=True)
+
+# Asset Composition Over Time
+st.subheader("Asset Composition Over Time")
+st.markdown(f"**Note**: This chart breaks down the components of total assets for both buying and renting scenarios. For buying, it includes Equity Gain (home value minus loan balance), Appreciation (increase in home value, shown in orange), and Buying Investment (VTI investments from cost savings when buying is cheaper). For renting, it includes Renting Investment (VTI investments from cost savings when renting is cheaper). All investments assume a {vti_annual_return}% annual return.")
+
+asset_composition_data = cost_comparison_df.melt(
+    id_vars=['Year'],
+    value_vars=['Equity Gain', 'Appreciation', 'Buying Investment', 'Renting Investment'],
+    var_name='Category',
+    value_name='Amount'
+)
+asset_composition_data = asset_composition_data[asset_composition_data['Amount'] > 0]
+
+color_scale = alt.Scale(
+    domain=['Equity Gain', 'Appreciation', 'Buying Investment', 'Renting Investment'],
+    range=['#1f77b4', '#ff7f0e', '#aec7e8', '#2ca02c']
+)
+
+stacked_area = alt.Chart(asset_composition_data).mark_area().encode(
+    x=alt.X('Year:O', title='Year', scale=alt.Scale(domain=list(range(eval_start_year, eval_end_year + 1)))),
+    y=alt.Y('Amount:Q', stack='zero', title='Asset Amount ($)'),
+    color=alt.Color('Category:N', legend=alt.Legend(title="Asset Category"), scale=color_scale),
+    tooltip=['Year', 'Category', alt.Tooltip('Amount:Q', format='$,.2f')]
+).interactive()
+
+vlines = []
+if show_refinance and refi_start_date:
+    vlines.append(alt.Chart(pd.DataFrame({'Year': [refi_start_date.year]})).mark_rule(color='red', strokeDash=[5,5]).encode(
+        x='Year:O',
+        tooltip=['Year', alt.Tooltip('Year:O', title='Refinance Year')]
+    ))
+vlines.append(alt.Chart(pd.DataFrame({'Year': [purchase_year]})).mark_rule(color='purple', strokeDash=[5,5]).encode(
+    x='Year:O',
+    tooltip=['Year', alt.Tooltip('Year:O', title='Purchase Year')]
+))
+if payoff_year is not None and eval_start_year <= payoff_year <= eval_end_year:
+    vlines.append(alt.Chart(pd.DataFrame({'Year': [payoff_year]})).mark_rule(color='green', strokeDash=[5,5]).encode(
+        x='Year:O',
+        tooltip=['Year', alt.Tooltip('Year:O', title='Payoff Year')]
+    ))
+
+chart = alt.layer(stacked_area, *vlines).configure_axis(
+    labelAngle=45
+).properties(
+    title="Asset Composition Over Time",
+    width=800,
+    height=400
+)
+
+st.altair_chart(chart, use_container_width=True)
+
+# Wealth Breakeven Point Chart
+st.subheader("Wealth Breakeven Analysis")
+st.markdown("**Note**: This chart shows when the total assets from buying (equity + investments) surpass renting (investments only). The breakeven point is marked with a vertical line where buying wealth exceeds renting wealth.")
+
+# Prepare data
+breakeven_data = cost_comparison_df[['Year', 'Buying Total Assets', 'Renting Total Assets']].copy()
+breakeven_data['Wealth Difference'] = breakeven_data['Buying Total Assets'] - breakeven_data['Renting Total Assets']
+breakeven_data['Color'] = breakeven_data['Wealth Difference'].apply(lambda x: '#1f77b4' if x >= 0 else '#2ca02c')
+
+# Find breakeven year (first year where Buying Total Assets >= Renting Total Assets)
+breakeven_year = breakeven_data[breakeven_data['Wealth Difference'] >= 0]['Year'].min() if (breakeven_data['Wealth Difference'] >= 0).any() else None
+
+# Line chart for wealth difference
+wealth_diff_chart = alt.Chart(breakeven_data).mark_line(point=True).encode(
+    x=alt.X('Year:O', title='Year', scale=alt.Scale(domain=list(range(eval_start_year, eval_end_year + 1)))),
+    y=alt.Y('Wealth Difference:Q', title='Wealth Difference (Buying - Renting) ($)'),
+    color=alt.Color('Color:N', scale=None),
+    tooltip=['Year', alt.Tooltip('Wealth Difference:Q', format='$,.2f'), alt.Tooltip('Buying Total Assets:Q', format='$,.2f'), alt.Tooltip('Renting Total Assets:Q', format='$,.2f')]
+).interactive()
+
+# Area chart for visual effect
+area_chart = alt.Chart(breakeven_data).mark_area(opacity=0.3).encode(
+    x=alt.X('Year:O', scale=alt.Scale(domain=list(range(eval_start_year, eval_end_year + 1)))),
+    y=alt.Y('Wealth Difference:Q'),
+    color=alt.Color('Color:N', scale=None)
+)
+
+# Zero line
+zero_line = alt.Chart(pd.DataFrame({'y': [0]})).mark_rule(color='black', strokeDash=[3,3]).encode(
+    y='y:Q'
+)
+
+# Breakeven line and annotation
+vlines = []
+annotations = []
+if breakeven_year is not None and eval_start_year <= breakeven_year <= eval_end_year:
+    vlines.append(alt.Chart(pd.DataFrame({'Year': [breakeven_year]})).mark_rule(color='purple', strokeDash=[5,5]).encode(
+        x='Year:O',
+        tooltip=['Year', alt.Tooltip('Year:O', title='Breakeven Year')]
+    ))
+    annotations.append(alt.Chart(pd.DataFrame({'Year': [breakeven_year], 'Text': ['Breakeven']})).mark_text(
+        align='left', dx=5, dy=-10, fontSize=12, fontWeight='bold', color='purple'
+    ).encode(
+        x='Year:O',
+        y=alt.value(0),
+        text='Text:N'
+    ))
+
+# Combine existing vertical lines
+if show_refinance and refi_start_date:
+    vlines.append(alt.Chart(pd.DataFrame({'Year': [refi_start_date.year]})).mark_rule(color='red', strokeDash=[5,5]).encode(
+        x='Year:O',
+        tooltip=['Year', alt.Tooltip('Year:O', title='Refinance Year')]
+    ))
+if payoff_year is not None and eval_start_year <= payoff_year <= eval_end_year:
+    vlines.append(alt.Chart(pd.DataFrame({'Year': [payoff_year]})).mark_rule(color='green', strokeDash=[5,5]).encode(
+        x='Year:O',
+        tooltip=['Year', alt.Tooltip('Year:O', title='Payoff Year')]
+    ))
+
+chart = alt.layer(area_chart, wealth_diff_chart, zero_line, *vlines, *annotations).configure_axis(
+    labelAngle=45
+).properties(
+    title="Wealth Breakeven: Buying vs. Renting",
+    width=800,
+    height=400
+)
+
+st.altair_chart(chart, use_container_width=True)
+
+# Interactive Sankey Diagram for Cost Flows (simulated with stacked bars)
+st.subheader("Cost Flow Analysis (Sankey Style)")
+st.markdown("**Note**: Select a year to visualize how costs are distributed for buying and renting. Buying costs flow into mortgage payments, taxes, insurance, etc., while renting costs flow into rent, utilities, fees, etc.")
+
+# Year selector
+selected_year = st.slider("Select Year for Cost Flow", min_value=int(eval_start_year), max_value=int(eval_end_year), value=int(purchase_year))
+
+# Prepare data for selected year
+buy_flow_data = cost_comparison_df[cost_comparison_df['Year'] == selected_year][[
+    'Direct Costs (P&I)', 'PMI', 'Property Taxes', 'Home Insurance', 'Maintenance', 
+    'Emergency', 'HOA Fees', 'Closing Costs', 'Points Costs'
+]].melt(var_name='Category', value_name='Amount')
+buy_flow_data['Type'] = 'Buying'
+buy_flow_data = buy_flow_data[buy_flow_data['Amount'] > 0]
+
+rent_flow_data = cost_comparison_df[cost_comparison_df['Year'] == selected_year][[
+    'Rent', 'Renters Insurance', 'Security Deposit', 'Utilities', 'Pet Fees', 
+    'Application Fee', 'Lease Renewal Fee', 'Parking Fee'
+]].melt(var_name='Category', value_name='Amount')
+rent_flow_data['Type'] = 'Renting'
+rent_flow_data = rent_flow_data[rent_flow_data['Amount'] > 0]
+
+flow_data = pd.concat([buy_flow_data, rent_flow_data])
+
+# Stacked bar to mimic Sankey flow
+flow_chart = alt.Chart(flow_data).mark_bar().encode(
+    x=alt.X('Type:N', title=None, axis=None),
+    y=alt.Y('Amount:Q', stack='normalize', title='Cost Distribution', axis=alt.Axis(format='%')),
+    color=alt.Color('Category:N', legend=alt.Legend(title="Cost Category"), scale=alt.Scale(scheme='tableau20')),
+    tooltip=['Type', 'Category', alt.Tooltip('Amount:Q', format='$,.2f')]
+).properties(
+    title=f"Cost Flow for Year {selected_year}",
+    width=400,
+    height=400
+).facet(
+    column=alt.Column('Type:N', title=None)
+).resolve_scale(
+    y='shared'
+)
+
+st.altair_chart(flow_chart, use_container_width=True)
+
+# Animated Asset Growth Donut Chart
+st.subheader("Asset Composition Donut Chart")
+st.markdown("**Note**: Select a year to see the proportion of assets for buying (equity vs. investment) and renting (investment only). The chart updates dynamically to show how asset composition changes over time.")
+
+# Year selector
+selected_year = st.slider("Select Year for Asset Composition", min_value=int(eval_start_year), max_value=int(eval_end_year), value=int(purchase_year))
+
+# Prepare data for selected year
+asset_donut_data = cost_comparison_df[cost_comparison_df['Year'] == selected_year][[
+    'Equity Gain', 'Buying Investment', 'Renting Investment'
+]].melt(var_name='Category', value_name='Amount')
+asset_donut_data['Type'] = asset_donut_data['Category'].map({
+    'Equity Gain': 'Buying',
+    'Buying Investment': 'Buying',
+    'Renting Investment': 'Renting'
+})
+asset_donut_data = asset_donut_data[asset_donut_data['Amount'] > 0]
+
+# Donut chart
+donut_chart = alt.Chart(asset_donut_data).mark_arc(innerRadius=50).encode(
+    theta=alt.Theta('Amount:Q', stack=True),
+    color=alt.Color('Category:N', legend=alt.Legend(title="Asset Category"), scale=alt.Scale(domain=['Equity Gain', 'Buying Investment', 'Renting Investment'], range=['#1f77b4', '#aec7e8', '#2ca02c'])),
+    tooltip=['Type', 'Category', alt.Tooltip('Amount:Q', format='$,.2f')]
+).properties(
+    title=f"Asset Composition for Year {selected_year}",
+    width=400,
+    height=400
+).facet(
+    column=alt.Column('Type:N', title=None)
+)
+
+st.altair_chart(donut_chart, use_container_width=True)
+
+# Scenario Comparison Heatmap
+st.subheader("Scenario Analysis: Wealth Difference Heatmap")
+st.markdown("**Note**: This heatmap shows the wealth difference (Buying - Renting) in the final evaluation year for different housing appreciation and VTI return rates. Blue indicates buying is more advantageous; green indicates renting.")
+
+# Input ranges
+appreciation_rates = st.slider("Select Housing Appreciation Rates (%)", min_value=0.0, max_value=10.0, value=(2.0, 5.0), step=0.5)
+vti_rates = st.slider("Select VTI Annual Return Rates (%)", min_value=0.0, max_value=12.0, value=(5.0, 9.0), step=0.5)
+
+# Generate scenario data
+appreciation_steps = np.arange(appreciation_rates[0], appreciation_rates[1] + 0.5, 0.5)
+vti_steps = np.arange(vti_rates[0], vti_rates[1] + 0.5, 0.5)
+scenario_data = []
+
+for appr in appreciation_steps:
+    for vti in vti_steps:
+        temp_df = calculate_cost_comparison(
+            main_annual_df, 
+            edited_property_expenses, 
+            edited_emergency_expenses, 
+            purchase_year, 
+            eval_start_year, 
+            eval_end_year, 
+            annual_appreciation=appr,
+            annual_insurance_increase=annual_insurance_increase,
+            annual_maintenance_increase=annual_maintenance_increase,
+            annual_hoa_increase=annual_hoa_increase,
+            cost_of_rent=cost_of_rent,
+            annual_rent_increase=annual_rent_increase,
+            renters_insurance=renters_insurance,
+            annual_deposit_increase=annual_deposit_increase,
+            security_deposit=security_deposit,
+            points_cost=points_cost,
+            points_cost_method=points_cost_method,
+            closing_costs=closing_costs,
+            closing_costs_method=closing_costs_method,
+            refi_costs=refi_costs,
+            roll_costs=roll_costs,
+            refi_points_cost=refi_points_cost,
+            refi_points_cost_method=refi_points_cost_method,
+            rental_utilities=rental_utilities,
+            pet_fee=pet_fee,
+            pet_fee_frequency=pet_fee_frequency,
+            application_fee=application_fee,
+            lease_renewal_fee=lease_renewal_fee,
+            parking_fee=parking_fee,
+            purchase_price=purchase_price,
+            vti_annual_return=vti
+        )
+        final_wealth_diff = temp_df[temp_df['Year'] == eval_end_year]['Buying Total Assets'].iloc[0] - temp_df[temp_df['Year'] == eval_end_year]['Renting Total Assets'].iloc[0] if eval_end_year in temp_df['Year'].values else 0
+        scenario_data.append({
+            'Appreciation Rate (%)': appr,
+            'VTI Return (%)': vti,
+            'Wealth Difference': final_wealth_diff
+        })
+
+scenario_df = pd.DataFrame(scenario_data)
+
+# Heatmap
+heatmap = alt.Chart(scenario_df).mark_rect().encode(
+    x=alt.X('Appreciation Rate (%):O', title='Housing Appreciation Rate (%)'),
+    y=alt.Y('VTI Return (%):O', title='VTI Annual Return (%)'),
+    color=alt.Color('Wealth Difference:Q', scale=alt.Scale(scheme='bluegreen', domainMid=0), title='Wealth Difference ($)'),
+    tooltip=[
+        alt.Tooltip('Appreciation Rate (%):Q', format='.1f'),
+        alt.Tooltip('VTI Return (%):Q', format='.1f'),
+        alt.Tooltip('Wealth Difference:Q', format='$,.2f')
+    ]
+).properties(
+    title=f"Wealth Difference in {eval_end_year} by Scenario",
+    width=400,
+    height=400
+)
+
+st.altair_chart(heatmap, use_container_width=True)
+
+# Footer
+st.markdown("---")
+st.markdown("Developed by Eric Hubbard | [KnowTheCostFinancial.com](https://knowthecostfinancial.com)")
