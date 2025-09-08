@@ -40,6 +40,14 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+
+def thick_divider():
+    st.markdown(
+        """<hr style="height:4px;border:none;color:#333;background-color:#333;" />""",
+        unsafe_allow_html=True
+    )
+
+
 # Page Config
 st.set_page_config(page_title="Rent vs. Buy Decision Support Framework", layout="wide")
 st.title("Rent vs. Buy Decision Support Framework")
@@ -127,12 +135,12 @@ with st.container(border=True):
         down_payment = st.number_input("Down Payment ($)", value=st.session_state["down_payment"], step=1_000, min_value=0, max_value=purchase_price, help="Initial payment toward purchase price.")
         if down_payment > purchase_price:
             st.warning("Down payment cannot exceed purchase price.")
+        percent_down = (down_payment / purchase_price * 100) if purchase_price > 0 else 0
+        st.metric("Down Payment Percentage", f"{percent_down:.2f}%")
         closing_costs = st.number_input("Closing Costs ($)", value=st.session_state["closing_costs"], step=500, min_value=0, help="One-time costs at purchase (e.g., fees, title).")
         closing_costs_method = st.selectbox("Closing Costs Method", ["Add to Loan Balance", "Pay Upfront"], index=0, help="Finance closing costs or pay upfront.")
         loan_amount = purchase_price - down_payment + (closing_costs if closing_costs_method == "Add to Loan Balance" else 0)
-        percent_down = (down_payment / purchase_price * 100) if purchase_price > 0 else 0
         st.metric("Calculated Loan Amount", f"${loan_amount:,.0f}")
-        st.metric("Down Payment Percentage", f"{percent_down:.2f}%")
 
     with col2:
         loan_years = st.number_input("Loan Length (Years)", value=st.session_state["loan_years"], step=1, min_value=1, max_value=50, help="Duration of the mortgage.")
@@ -172,6 +180,111 @@ with st.container(border=True):
         )
     else:
         rate_schedule = pd.DataFrame({"Year": [1], "Rate (%)": [mortgage_rate]})
+
+    # Inside the "Advanced Options" section, replace the Extra Principal Payments part
+    st.markdown("### Extra Principal Payments")
+    st.markdown("Add extra payments to reduce your mortgage principal faster. Ensure all required fields are filled to avoid errors.")
+    default_payments = pd.DataFrame({
+        "Amount ($)": [200, 10000],
+        "Frequency": ["Monthly", "One-time"],
+        "Start Year": [purchase_year, purchase_year + 5],
+        "Start Month": [1, 6],
+        "End Year": [purchase_year + 5, purchase_year + 5],
+        "End Month": [12, 6],
+        "Interval (Years)": [None, None]
+    })
+    extra_payments = st.data_editor(
+        default_payments,
+        column_config={
+            "Amount ($)": st.column_config.NumberColumn("Amount ($)", min_value=0, step=100, help="Amount of extra payment.", required=True),
+            "Frequency": st.column_config.SelectboxColumn("Frequency", options=["One-time", "Monthly", "Quarterly", "Annually", "Every X Years"], help="How often the payment is made.", required=True),
+            "Start Year": st.column_config.NumberColumn("Start Year", min_value=purchase_year, max_value=purchase_year + loan_years, step=1, help="Year payments start.", required=True),
+            "Start Month": st.column_config.NumberColumn("Start Month", min_value=1, max_value=12, step=1, help="Month payments start.", required=True),
+            "End Year": st.column_config.NumberColumn("End Year", min_value=purchase_year, max_value=purchase_year + loan_years, step=1, help="Year payments end.", required=True),
+            "End Month": st.column_config.NumberColumn("End Month", min_value=1, max_value=12, step=1, help="Month payments end.", required=True),
+            "Interval (Years)": st.column_config.NumberColumn("Interval (Years)", min_value=1, step=1, help="Interval for 'Every X Years' payments (optional).")
+        },
+        hide_index=True,
+        num_rows="dynamic"
+    )
+
+# Validate extra_payments DataFrame
+required_columns = ["Amount ($)", "Frequency", "Start Year", "Start Month", "End Year", "End Month"]
+invalid_rows = extra_payments[required_columns].isna().any(axis=1)
+if invalid_rows.any():
+    st.warning("Some extra payment rows have missing values in required fields (Amount, Frequency, Start/End Year/Month). These rows will be ignored.")
+    extra_payments = extra_payments[~invalid_rows].copy()
+
+# Additional validation for Interval (Years)
+if "Interval (Years)" in extra_payments.columns:
+    extra_payments.loc[
+        (extra_payments["Frequency"] != "Every X Years") | extra_payments["Interval (Years)"].isna(),
+        "Interval (Years)"
+    ] = None
+
+
+# Advanced Homeownership Options
+st.subheader("Advanced Homeownership Options")
+with st.expander("Refinance", expanded=False):
+    st.markdown("### Refinance Options")
+    show_refinance = st.checkbox("Model a Refinance?", value=False, help="Include a refinance scenario in calculations.")
+    refi_rate = None
+    refi_term_years = None
+    refi_start_date = None
+    refi_costs = None
+    roll_costs = None
+    refi_payment_frequency = None
+    refi_mortgage_type = None
+    refi_rate_schedule = None
+    refi_periods_per_year = None
+    refi_buy_points = False
+    refi_points = 0
+    refi_discount_per_point = 0.25
+    refi_points_cost_method = "Add to Loan Balance"
+    refi_points_cost = 0
+    refi_effective_rate = None
+
+    if show_refinance:
+        col1, col2 = st.columns(2)
+        with col1:
+            refi_rate = st.number_input("Refinance Rate (%)", value=4.0, step=0.01, min_value=0.0, format="%.3f", help="Interest rate for refinanced loan.")
+            refi_term_years = st.number_input("Refinance Term (Years)", value=20, step=1, min_value=1, max_value=50, help="Duration of refinanced loan.")
+            refi_start_date = st.date_input("Refinance Start Date", min_value=datetime(purchase_year, 1, 1), max_value=datetime(purchase_year + loan_years, 12, 31), help="Date refinance begins.")
+        with col2:
+            refi_costs = st.number_input("Refinance Closing Costs ($)", value=3000, step=500, min_value=0, help="One-time costs for refinancing.")
+            roll_costs = st.selectbox("Refinance Cost Method", ["Add to Loan Balance", "Pay Upfront"], index=0, help="Finance or pay refinance costs upfront.")
+            refi_payment_frequency = st.selectbox("Refinance Payment Frequency", ["Monthly", "Biweekly"], index=0, help="Payment frequency for refinanced loan.")
+            refi_mortgage_type = st.selectbox("Refinance Mortgage Type", ["Fixed", "Variable"], index=0, help="Fixed or variable rate for refinanced loan.")
+            refi_periods_per_year = 12 if refi_payment_frequency == "Monthly" else 26
+            refi_effective_rate = refi_rate
+
+        refi_buy_points = st.checkbox("Buy Points for Refinance?", value=False, help="Pay points to lower refinance rate.")
+        if refi_buy_points:
+            col1, col2 = st.columns(2)
+            with col1:
+                refi_points = st.number_input("Refinance Points", value=1.0, step=0.25, min_value=0.0, help="Points purchased for refinance.")
+                refi_discount_per_point = st.number_input("Refinance Rate Discount per Point (%)", value=0.25, step=0.01, min_value=0.0, help="Rate reduction per refinance point.")
+            with col2:
+                refi_points_cost_method = st.selectbox("Refinance Points Cost Method", ["Add to Loan Balance", "Pay Upfront"], index=0, help="Finance or pay refinance points upfront.")
+                refi_effective_rate = refi_rate - (refi_discount_per_point * refi_points)
+                refi_points_cost = refi_points * (purchase_price - down_payment) * 0.01
+                st.metric("Refinance Effective Rate", f"{refi_effective_rate:.3f}%")
+                st.metric("Refinance Points Cost", f"${refi_points_cost:,.0f}")
+
+        if refi_mortgage_type == "Variable":
+            st.markdown("### Refinance Variable Rate Schedule")
+            default_refi_schedule = pd.DataFrame({"Year": [1, 5, 10], "Rate (%)": [refi_effective_rate, refi_effective_rate + 1.5, refi_effective_rate + 2.0]})
+            refi_rate_schedule = st.data_editor(
+                default_refi_schedule,
+                column_config={
+                    "Year": st.column_config.NumberColumn("Year", min_value=1, max_value=refi_term_years, step=1, help="Year the refinance rate applies."),
+                    "Rate (%)": st.column_config.NumberColumn("Rate (%)", min_value=0.0, step=0.1, help="Refinance rate for the specified year.")
+                },
+                hide_index=True,
+                num_rows="dynamic"
+            )
+        else:
+            refi_rate_schedule = pd.DataFrame({"Year": [1], "Rate (%)": [refi_effective_rate]})
 
 # Ongoing Expenses
 st.subheader("Ongoing Homeownership Expenses")
@@ -241,110 +354,6 @@ with st.container(border=True):
         application_fee = st.number_input("Application Fee ($)", value=st.session_state["application_fee"], step=10, min_value=0, help="One-time fee per lease application.")
         lease_renewal_fee = st.number_input("Annual Lease Renewal Fee ($)", value=st.session_state["lease_renewal_fee"], step=50, min_value=0, help="Annual fee for renewing lease.")
         parking_fee = st.number_input("Monthly Parking Fee ($)", value=st.session_state["parking_fee"], step=10, min_value=0, help="Monthly parking cost.")
-
-# Advanced Options
-st.subheader("Advanced Options")
-with st.expander("Refinance and Extra Payments", expanded=False):
-    st.markdown("### Refinance Options")
-    show_refinance = st.checkbox("Model a Refinance?", value=False, help="Include a refinance scenario in calculations.")
-    refi_rate = None
-    refi_term_years = None
-    refi_start_date = None
-    refi_costs = None
-    roll_costs = None
-    refi_payment_frequency = None
-    refi_mortgage_type = None
-    refi_rate_schedule = None
-    refi_periods_per_year = None
-    refi_buy_points = False
-    refi_points = 0
-    refi_discount_per_point = 0.25
-    refi_points_cost_method = "Add to Loan Balance"
-    refi_points_cost = 0
-    refi_effective_rate = None
-
-    if show_refinance:
-        col1, col2 = st.columns(2)
-        with col1:
-            refi_rate = st.number_input("Refinance Rate (%)", value=4.0, step=0.01, min_value=0.0, format="%.3f", help="Interest rate for refinanced loan.")
-            refi_term_years = st.number_input("Refinance Term (Years)", value=20, step=1, min_value=1, max_value=50, help="Duration of refinanced loan.")
-            refi_start_date = st.date_input("Refinance Start Date", min_value=datetime(purchase_year, 1, 1), max_value=datetime(purchase_year + loan_years, 12, 31), help="Date refinance begins.")
-        with col2:
-            refi_costs = st.number_input("Refinance Closing Costs ($)", value=3000, step=500, min_value=0, help="One-time costs for refinancing.")
-            roll_costs = st.selectbox("Refinance Cost Method", ["Add to Loan Balance", "Pay Upfront"], index=0, help="Finance or pay refinance costs upfront.")
-            refi_payment_frequency = st.selectbox("Refinance Payment Frequency", ["Monthly", "Biweekly"], index=0, help="Payment frequency for refinanced loan.")
-            refi_mortgage_type = st.selectbox("Refinance Mortgage Type", ["Fixed", "Variable"], index=0, help="Fixed or variable rate for refinanced loan.")
-            refi_periods_per_year = 12 if refi_payment_frequency == "Monthly" else 26
-            refi_effective_rate = refi_rate
-
-        refi_buy_points = st.checkbox("Buy Points for Refinance?", value=False, help="Pay points to lower refinance rate.")
-        if refi_buy_points:
-            col1, col2 = st.columns(2)
-            with col1:
-                refi_points = st.number_input("Refinance Points", value=1.0, step=0.25, min_value=0.0, help="Points purchased for refinance.")
-                refi_discount_per_point = st.number_input("Refinance Rate Discount per Point (%)", value=0.25, step=0.01, min_value=0.0, help="Rate reduction per refinance point.")
-            with col2:
-                refi_points_cost_method = st.selectbox("Refinance Points Cost Method", ["Add to Loan Balance", "Pay Upfront"], index=0, help="Finance or pay refinance points upfront.")
-                refi_effective_rate = refi_rate - (refi_discount_per_point * refi_points)
-                refi_points_cost = refi_points * (purchase_price - down_payment) * 0.01
-                st.metric("Refinance Effective Rate", f"{refi_effective_rate:.3f}%")
-                st.metric("Refinance Points Cost", f"${refi_points_cost:,.0f}")
-
-        if refi_mortgage_type == "Variable":
-            st.markdown("### Refinance Variable Rate Schedule")
-            default_refi_schedule = pd.DataFrame({"Year": [1, 5, 10], "Rate (%)": [refi_effective_rate, refi_effective_rate + 1.5, refi_effective_rate + 2.0]})
-            refi_rate_schedule = st.data_editor(
-                default_refi_schedule,
-                column_config={
-                    "Year": st.column_config.NumberColumn("Year", min_value=1, max_value=refi_term_years, step=1, help="Year the refinance rate applies."),
-                    "Rate (%)": st.column_config.NumberColumn("Rate (%)", min_value=0.0, step=0.1, help="Refinance rate for the specified year.")
-                },
-                hide_index=True,
-                num_rows="dynamic"
-            )
-        else:
-            refi_rate_schedule = pd.DataFrame({"Year": [1], "Rate (%)": [refi_effective_rate]})
-
-# Inside the "Advanced Options" section, replace the Extra Principal Payments part
-st.markdown("### Extra Principal Payments")
-st.markdown("Add extra payments to reduce your mortgage principal faster. Ensure all required fields are filled to avoid errors.")
-default_payments = pd.DataFrame({
-    "Amount ($)": [200, 10000],
-    "Frequency": ["Monthly", "One-time"],
-    "Start Year": [purchase_year, purchase_year + 5],
-    "Start Month": [1, 6],
-    "End Year": [purchase_year + 5, purchase_year + 5],
-    "End Month": [12, 6],
-    "Interval (Years)": [None, None]
-})
-extra_payments = st.data_editor(
-    default_payments,
-    column_config={
-        "Amount ($)": st.column_config.NumberColumn("Amount ($)", min_value=0, step=100, help="Amount of extra payment.", required=True),
-        "Frequency": st.column_config.SelectboxColumn("Frequency", options=["One-time", "Monthly", "Quarterly", "Annually", "Every X Years"], help="How often the payment is made.", required=True),
-        "Start Year": st.column_config.NumberColumn("Start Year", min_value=purchase_year, max_value=purchase_year + loan_years, step=1, help="Year payments start.", required=True),
-        "Start Month": st.column_config.NumberColumn("Start Month", min_value=1, max_value=12, step=1, help="Month payments start.", required=True),
-        "End Year": st.column_config.NumberColumn("End Year", min_value=purchase_year, max_value=purchase_year + loan_years, step=1, help="Year payments end.", required=True),
-        "End Month": st.column_config.NumberColumn("End Month", min_value=1, max_value=12, step=1, help="Month payments end.", required=True),
-        "Interval (Years)": st.column_config.NumberColumn("Interval (Years)", min_value=1, step=1, help="Interval for 'Every X Years' payments (optional).")
-    },
-    hide_index=True,
-    num_rows="dynamic"
-)
-
-# Validate extra_payments DataFrame
-required_columns = ["Amount ($)", "Frequency", "Start Year", "Start Month", "End Year", "End Month"]
-invalid_rows = extra_payments[required_columns].isna().any(axis=1)
-if invalid_rows.any():
-    st.warning("Some extra payment rows have missing values in required fields (Amount, Frequency, Start/End Year/Month). These rows will be ignored.")
-    extra_payments = extra_payments[~invalid_rows].copy()
-
-# Additional validation for Interval (Years)
-if "Interval (Years)" in extra_payments.columns:
-    extra_payments.loc[
-        (extra_payments["Frequency"] != "Every X Years") | extra_payments["Interval (Years)"].isna(),
-        "Interval (Years)"
-    ] = None
 
 # Investment and Evaluation Period
 st.subheader("Investment and Analysis Period")
@@ -1093,22 +1102,22 @@ if payment_frequency == "Biweekly":
     st.plotly_chart(fig_saved_bi, use_container_width=True)
 
 
-st.markdown(
-    """<hr style="height:4px;border:none;color:#333;background-color:#333;" /> """,
-    unsafe_allow_html=True
-)
+thick_divider()
 
 st.header("Evaluation Year Selection")
-with st.container(border=True):
-    selected_year = st.selectbox(
-        "Select Evaluation Year",
-        options=list(range(eval_start_year, eval_end_year + 1)),
-        index=0,
-        help="Choose a year to view detailed asset and cost breakdowns."
-    )
+st.markdown('<div class="highlight-box">Select a year to analyze asset and cost metrics.</div>', unsafe_allow_html=True)
+st.markdown(" ")
+selected_year = st.selectbox(
+    "Select Evaluation Year",
+    options=list(range(eval_start_year, eval_end_year + 1)),
+    index=0,
+    help="Choose a year to view detailed asset and cost breakdowns."
+)
+
+thick_divider()
 
 st.header("Asset Metrics")
-st.markdown('<div class="highlight-box">Select a year to analyze asset and cost metrics. Buying assets include home equity, appreciation, and VTI investments. Renting assets include VTI investments from cost savings and down payment.</div>', unsafe_allow_html=True)
+st.markdown('<div class="highlight-box">Buying assets include home equity, appreciation, and VTI investments. Renting assets include VTI investments from cost savings and down payment.</div>', unsafe_allow_html=True)
 final_data = cost_comparison_df[cost_comparison_df["Year"] == selected_year]
 if not final_data.empty:
     final_balance = main_annual_df[main_annual_df["Date"].dt.year == selected_year]["Balance"].iloc[-1] if selected_year in main_annual_df["Date"].dt.year.values else 0
@@ -1210,202 +1219,291 @@ with st.expander("Detailed Asset Breakdown by Year", expanded=False):
     asset_breakout['Year'] = asset_breakout['Year'].astype(str)
     st.dataframe(asset_breakout.style.format({col: "${:,.2f}" for col in asset_breakout.columns if col != 'Year'}), hide_index=True)
 
+thick_divider()
+
+# Projected Assets Section
+st.header("Projected Assets")
+st.markdown("Visualize the growth of total assets over time. Buying assets include home equity, appreciation, and VTI investments. Renting assets include VTI investments from cost savings and down payment.")
+with st.container(border=True):
+    tab_period, tab_cumulative, tab_pct_diff = st.tabs(["Annual Assets", "Cumulative Assets", "Asset % Difference"])
+    with tab_period:
+        st.markdown("**Annual Assets**: Compare yearly total assets for buying vs. renting.")
+        asset_data = pd.concat([
+            pd.DataFrame({"Year": cost_comparison_df["Year"], "Assets": cost_comparison_df["Buying Total Assets"], "Type": "Buying"}),
+            pd.DataFrame({"Year": cost_comparison_df["Year"], "Assets": cost_comparison_df["Renting Total Assets"], "Type": "Renting"})
+        ], ignore_index=True)
+        fig_assets = px.line(asset_data, x='Year', y='Assets', color='Type', markers=True)
+        fig_assets.update_layout(
+            plot_bgcolor="rgb(245, 245, 245)", paper_bgcolor="rgb(245, 245, 245)",
+            xaxis_title='Year', yaxis_title='Annual Assets ($)',
+            legend=dict(yanchor="top", y=1.1, xanchor="left", x=0)
+        )
+        if show_refinance and refi_start_date:
+            fig_assets.add_vline(x=refi_start_date.year, line_dash="dash", line_color="red", annotation_text="Refinance")
+        if purchase_year and eval_start_year <= purchase_year <= eval_end_year:
+            fig_assets.add_vline(x=purchase_year, line_dash="dash", line_color="blue", annotation_text="Purchase")
+        if payoff_year and eval_start_year <= payoff_year <= eval_end_year:
+            fig_assets.add_vline(x=payoff_year, line_dash="dash", line_color="green", annotation_text="Payoff")
+        st.plotly_chart(fig_assets, use_container_width=True)
+
+    with tab_cumulative:
+        st.markdown("**Cumulative Assets**: Compare the cumulative total assets for buying vs. renting over time.")
+        cum_asset_data = pd.concat([
+            pd.DataFrame({"Year": cost_comparison_df["Year"], "Assets": cost_comparison_df["Buying Total Assets"].cumsum(), "Type": "Buying"}),
+            pd.DataFrame({"Year": cost_comparison_df["Year"], "Assets": cost_comparison_df["Renting Total Assets"].cumsum(), "Type": "Renting"})
+        ], ignore_index=True)
+        fig_cum_assets = px.line(cum_asset_data, x='Year', y='Assets', color='Type', markers=True)
+        fig_cum_assets.update_layout(
+            plot_bgcolor="rgb(245, 245, 245)", paper_bgcolor="rgb(245, 245, 245)",
+            xaxis_title='Year', yaxis_title='Cumulative Assets ($)',
+            legend=dict(yanchor="top", y=1.1, xanchor="left", x=0)
+        )
+        if show_refinance and refi_start_date:
+            fig_cum_assets.add_vline(x=refi_start_date.year, line_dash="dash", line_color="red", annotation_text="Refinance")
+        if purchase_year and eval_start_year <= purchase_year <= eval_end_year:
+            fig_cum_assets.add_vline(x=purchase_year, line_dash="dash", line_color="blue", annotation_text="Purchase")
+        if payoff_year and eval_start_year <= payoff_year <= eval_end_year:
+            fig_cum_assets.add_vline(x=payoff_year, line_dash="dash", line_color="green", annotation_text="Payoff")
+        st.plotly_chart(fig_cum_assets, use_container_width=True)
+
+    with tab_pct_diff:
+        st.markdown("**Asset % Difference**: Percentage difference between buying and renting assets, calculated as ((Buying Assets - Renting Assets) / Renting Assets) * 100.")
+        asset_pct_diff = pd.DataFrame({
+            "Year": cost_comparison_df["Year"],
+            "Asset % Difference": ((cost_comparison_df["Buying Total Assets"] - cost_comparison_df["Renting Total Assets"]) / cost_comparison_df["Renting Total Assets"].replace(0, np.nan)) * 100
+        })
+        asset_pct_diff["Asset % Difference"] = asset_pct_diff["Asset % Difference"].fillna(0)  # Handle division by zero
+        fig_asset_pct_diff = px.line(asset_pct_diff, x='Year', y='Asset % Difference', markers=True)
+        fig_asset_pct_diff.update_layout(
+            plot_bgcolor="rgb(245, 245, 245)", paper_bgcolor="rgb(245, 245, 245)",
+            xaxis_title='Year', yaxis_title='Asset % Difference (Buy - Rent) / Rent (%)',
+            showlegend=False
+        )
+        if show_refinance and refi_start_date:
+            fig_asset_pct_diff.add_vline(x=refi_start_date.year, line_dash="dash", line_color="red", annotation_text="Refinance")
+        if purchase_year and eval_start_year <= purchase_year <= eval_end_year:
+            fig_asset_pct_diff.add_vline(x=purchase_year, line_dash="dash", line_color="blue", annotation_text="Purchase")
+        if payoff_year and eval_start_year <= payoff_year <= eval_end_year:
+            fig_asset_pct_diff.add_vline(x=payoff_year, line_dash="dash", line_color="green", annotation_text="Payoff")
+        st.plotly_chart(fig_asset_pct_diff, use_container_width=True)
+        st.markdown("**Note**: Zero values indicate no renting assets for that year, preventing division by zero.")
+
+thick_divider()
+
+# Cost Metrics Section
 st.header("Cost Metrics")
-buy_cost_cols = ['Direct Costs (P&I)', 'PMI', 'Property Taxes', 'Home Insurance', 'Maintenance', 'Emergency', 'HOA Fees', 'Closing Costs', 'Points Costs']
-rent_cost_cols = ['Rent', 'Renters Insurance', 'Security Deposit', 'Utilities', 'Pet Fees', 'Application Fee', 'Lease Renewal Fee', 'Parking Fee']
-buy_cost_df = cost_comparison_df[cost_comparison_df['Year'] == selected_year][buy_cost_cols].melt(
-    var_name='Item', value_name='Value'
-)
-buy_cost_df = buy_cost_df[buy_cost_df['Value'] > 0]
-total_buy_cost = buy_cost_df['Value'].sum()
-buy_cost_df['% of Total'] = (buy_cost_df['Value'] / total_buy_cost) * 100 if total_buy_cost > 0 else 0
-total_buy_cost_row = pd.DataFrame({"Item": ["Total"], "Value": [total_buy_cost], "% of Total": [100.0]})
-buy_cost_df = pd.concat([buy_cost_df, total_buy_cost_row], ignore_index=True)
+st.markdown(f"Breakdown of costs for the selected year ({selected_year}). Buying costs include P&I, PMI, taxes, insurance, maintenance, and more. Renting costs include rent, fees, and utilities.")
+with st.container(border=True):
+    buy_cost_cols = ['Direct Costs (P&I)', 'PMI', 'Property Taxes', 'Home Insurance', 'Maintenance', 'Emergency', 'HOA Fees', 'Closing Costs', 'Points Costs']
+    rent_cost_cols = ['Rent', 'Renters Insurance', 'Security Deposit', 'Utilities', 'Pet Fees', 'Application Fee', 'Lease Renewal Fee', 'Parking Fee']
+    
+    buy_cost_df = cost_comparison_df[cost_comparison_df['Year'] == selected_year][buy_cost_cols].melt(var_name='Item', value_name='Value')
+    buy_cost_df = buy_cost_df[buy_cost_df['Value'] > 0]
+    total_buy_cost = buy_cost_df['Value'].sum()
+    buy_cost_df['% of Total'] = (buy_cost_df['Value'] / total_buy_cost * 100) if total_buy_cost > 0 else 0
+    total_buy_cost_row = pd.DataFrame({"Item": ["Total"], "Value": [total_buy_cost], "% of Total": [100.0]})
+    buy_cost_df = pd.concat([buy_cost_df, total_buy_cost_row], ignore_index=True)
 
-rent_cost_df = cost_comparison_df[cost_comparison_df['Year'] == selected_year][rent_cost_cols].melt(
-    var_name='Item', value_name='Value'
-)
-rent_cost_df = rent_cost_df[rent_cost_df['Value'] > 0]
-total_rent_cost = rent_cost_df['Value'].sum()
-rent_cost_df['% of Total'] = (rent_cost_df['Value'] / total_rent_cost) * 100 if total_rent_cost > 0 else 0
-total_rent_cost_row = pd.DataFrame({"Item": ["Total"], "Value": [total_rent_cost], "% of Total": [100.0]})
-rent_cost_df = pd.concat([rent_cost_df, total_rent_cost_row], ignore_index=True)
+    rent_cost_df = cost_comparison_df[cost_comparison_df['Year'] == selected_year][rent_cost_cols].melt(var_name='Item', value_name='Value')
+    rent_cost_df = rent_cost_df[rent_cost_df['Value'] > 0]
+    total_rent_cost = rent_cost_df['Value'].sum()
+    rent_cost_df['% of Total'] = (rent_cost_df['Value'] / total_rent_cost * 100) if total_rent_cost > 0 else 0
+    total_rent_cost_row = pd.DataFrame({"Item": ["Total"], "Value": [total_rent_cost], "% of Total": [100.0]})
+    rent_cost_df = pd.concat([rent_cost_df, total_rent_cost_row], ignore_index=True)
 
-buy_col, rent_col = st.columns(2)
-with buy_col:
-    st.markdown(f"### Buying Costs ({selected_year})")
-    st.dataframe(
-        buy_cost_df.style.format({"Value": "${:,.2f}", "% of Total": "{:.2f}%"})
-        .apply(lambda row: ["background-color: #e6f3ff" if row["Item"] == "Total" else ""] * len(row), axis=1),
-        hide_index=True
-    )
-with rent_col:
-    st.markdown(f"### Renting Costs ({selected_year})")
-    st.dataframe(
-        rent_cost_df.style.format({"Value": "${:,.2f}", "% of Total": "{:.2f}%"})
-        .apply(lambda row: ["background-color: #e6f3ff" if row["Item"] == "Total" else ""] * len(row), axis=1),
-        hide_index=True
-    )
+    buy_col, rent_col = st.columns(2)
+    with buy_col:
+        st.markdown(f"### Buying Costs ({selected_year})")
+        st.dataframe(
+            buy_cost_df.style.format({"Value": "${:,.2f}", "% of Total": "{:.2f}%"})
+            .apply(lambda row: ["background-color: #e6f3ff" if row["Item"] == "Total" else ""] * len(row), axis=1),
+            hide_index=True
+        )
+    with rent_col:
+        st.markdown(f"### Renting Costs ({selected_year})")
+        st.dataframe(
+            rent_cost_df.style.format({"Value": "${:,.2f}", "% of Total": "{:.2f}%"})
+            .apply(lambda row: ["background-color: #e6f3ff" if row["Item"] == "Total" else ""] * len(row), axis=1),
+            hide_index=True
+        )
 
+# Cost Breakdown Section
 st.header("Cost Breakdown")
-buy_cost_data = cost_comparison_df[cost_comparison_df['Year'] == selected_year][buy_cost_cols].melt(
-    var_name='Category', value_name='Cost'
-)
-buy_cost_data = buy_cost_data[buy_cost_data['Cost'] > 0]
-rent_cost_data = cost_comparison_df[cost_comparison_df['Year'] == selected_year][rent_cost_cols].melt(
-    var_name='Category', value_name='Cost'
-)
-rent_cost_data = rent_cost_data[rent_cost_data['Cost'] > 0]
+st.markdown(f"Visualize the cost components for {selected_year}. Hover over the treemaps to see detailed values.")
+with st.container(border=True):
+    buy_cost_data = cost_comparison_df[cost_comparison_df['Year'] == selected_year][buy_cost_cols].melt(var_name='Category', value_name='Cost')
+    buy_cost_data = buy_cost_data[buy_cost_data['Cost'] > 0]
+    rent_cost_data = cost_comparison_df[cost_comparison_df['Year'] == selected_year][rent_cost_cols].melt(var_name='Category', value_name='Cost')
+    rent_cost_data = rent_cost_data[rent_cost_data['Cost'] > 0]
 
-col1, col2 = st.columns(2)
-with col1:
-    st.markdown("### Buying Costs")
-    fig_buy_cost = px.treemap(
-        buy_cost_data, path=['Category'], values='Cost', color='Cost', color_continuous_scale='Blues',
-        labels={'Cost': 'Cost ($)'}, hover_data={'Cost': ':.2f'}
-    )
-    fig_buy_cost.update_traces(texttemplate='%{label}<br>%{value:,.0f} (%{percentParent:.2%})')
-    fig_buy_cost.update_layout(margin=dict(t=0, b=0, l=0, r=0))
-    st.plotly_chart(fig_buy_cost, use_container_width=True)
-with col2:
-    st.markdown("### Renting Costs")
-    fig_rent_cost = px.treemap(
-        rent_cost_data, path=['Category'], values='Cost', color='Cost', color_continuous_scale='Blues',
-        labels={'Cost': 'Cost ($)'}, hover_data={'Cost': ':.2f'}
-    )
-    fig_rent_cost.update_traces(texttemplate='%{label}<br>%{value:,.0f} (%{percentParent:.2%})')
-    fig_rent_cost.update_layout(margin=dict(t=0, b=0, l=0, r=0))
-    st.plotly_chart(fig_rent_cost, use_container_width=True)
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("### Buying Costs")
+        fig_buy_cost = px.treemap(
+            buy_cost_data, path=['Category'], values='Cost', color='Cost', color_continuous_scale='Blues',
+            labels={'Cost': 'Cost ($)'}, hover_data={'Cost': ':.2f'}
+        )
+        fig_buy_cost.update_traces(texttemplate='%{label}<br>%{value:,.0f} (%{percentParent:.2%})')
+        fig_buy_cost.update_layout(margin=dict(t=0, b=0, l=0, r=0))
+        st.plotly_chart(fig_buy_cost, use_container_width=True)
+    with col2:
+        st.markdown("### Renting Costs")
+        fig_rent_cost = px.treemap(
+            rent_cost_data, path=['Category'], values='Cost', color='Cost', color_continuous_scale='Blues',
+            labels={'Cost': 'Cost ($)'}, hover_data={'Cost': ':.2f'}
+        )
+        fig_rent_cost.update_traces(texttemplate='%{label}<br>%{value:,.0f} (%{percentParent:.2%})')
+        fig_rent_cost.update_layout(margin=dict(t=0, b=0, l=0, r=0))
+        st.plotly_chart(fig_rent_cost, use_container_width=True)
 
-st.header("Costs")
-tab_non_cum, tab_cum = st.tabs(["By Period", "Cumulative"])
-with tab_non_cum:
-    cost_data = pd.concat([
-        pd.DataFrame({
+# Costs Section
+st.header("Projected Costs")
+st.markdown("Track total costs over time for buying (P&I, PMI, taxes, insurance, etc.) and renting (rent, fees, utilities).")
+with st.container(border=True):
+    tab_non_cum, tab_cum, tab_pct_diff = st.tabs(["Annual Costs", "Cumulative Costs", "Cost % Difference"])
+    with tab_non_cum:
+        st.markdown("**Annual Costs**: Compare yearly total costs for buying vs. renting.")
+        cost_data = pd.concat([
+            pd.DataFrame({"Year": cost_comparison_df["Year"], "Cost": cost_comparison_df["Total Buying Cost"], "Type": "Buying"}),
+            pd.DataFrame({"Year": cost_comparison_df["Year"], "Cost": cost_comparison_df["Total Renting Cost"], "Type": "Renting"})
+        ], ignore_index=True)
+        fig_costs = px.line(cost_data, x='Year', y='Cost', color='Type', markers=True)
+        fig_costs.update_layout(
+            plot_bgcolor="rgb(245, 245, 245)", paper_bgcolor="rgb(245, 245, 245)",
+            xaxis_title='Year', yaxis_title='Annual Cost ($)',
+            legend=dict(yanchor="top", y=1.1, xanchor="left", x=0)
+        )
+        if show_refinance and refi_start_date:
+            fig_costs.add_vline(x=refi_start_date.year, line_dash="dash", line_color="red", annotation_text="Refinance")
+        if purchase_year and eval_start_year <= purchase_year <= eval_end_year:
+            fig_costs.add_vline(x=purchase_year, line_dash="dash", line_color="blue", annotation_text="Purchase")
+        if payoff_year and eval_start_year <= payoff_year <= eval_end_year:
+            fig_costs.add_vline(x=payoff_year, line_dash="dash", line_color="green", annotation_text="Payoff")
+        st.plotly_chart(fig_costs, use_container_width=True)
+
+    with tab_cum:
+        st.markdown("**Cumulative Costs**: Compare the cumulative total costs for buying vs. renting over time.")
+        cum_cost_data = pd.concat([
+            pd.DataFrame({"Year": cost_comparison_df["Year"], "Cost": cost_comparison_df["Cumulative Buying Cost"], "Type": "Buying"}),
+            pd.DataFrame({"Year": cost_comparison_df["Year"], "Cost": cost_comparison_df["Cumulative Renting Cost"], "Type": "Renting"})
+        ], ignore_index=True)
+        fig_cum_costs = px.line(cum_cost_data, x='Year', y='Cost', color='Type', markers=True)
+        fig_cum_costs.update_layout(
+            plot_bgcolor="rgb(245, 245, 245)", paper_bgcolor="rgb(245, 245, 245)",
+            xaxis_title='Year', yaxis_title='Cumulative Cost ($)',
+            legend=dict(yanchor="top", y=1.1, xanchor="left", x=0)
+        )
+        if show_refinance and refi_start_date:
+            fig_cum_costs.add_vline(x=refi_start_date.year, line_dash="dash", line_color="red", annotation_text="Refinance")
+        if purchase_year and eval_start_year <= purchase_year <= eval_end_year:
+            fig_cum_costs.add_vline(x=purchase_year, line_dash="dash", line_color="blue", annotation_text="Purchase")
+        if payoff_year and eval_start_year <= payoff_year <= eval_end_year:
+            fig_cum_costs.add_vline(x=payoff_year, line_dash="dash", line_color="green", annotation_text="Payoff")
+        st.plotly_chart(fig_cum_costs, use_container_width=True)
+
+    with tab_pct_diff:
+        st.markdown("**Cost % Difference**: Percentage difference between buying and renting costs, calculated as ((Buying Cost - Renting Cost) / Renting Cost) * 100.")
+        cost_pct_diff = pd.DataFrame({
             "Year": cost_comparison_df["Year"],
-            "Cost": cost_comparison_df["Total Buying Cost"],
-            "Type": "Buying"
-        }),
-        pd.DataFrame({
-            "Year": cost_comparison_df["Year"],
-            "Cost": cost_comparison_df["Total Renting Cost"],
-            "Type": "Renting"
+            "Cost % Difference": ((cost_comparison_df["Total Buying Cost"] - cost_comparison_df["Total Renting Cost"]) / cost_comparison_df["Total Renting Cost"].replace(0, np.nan)) * 100
         })
-    ])
-    fig_costs = px.line(cost_data, x='Year', y='Cost', color='Type', markers=True)
-    fig_costs.update_layout(
-        plot_bgcolor="rgb(245, 245, 245)", paper_bgcolor="rgb(245, 245, 245)",
-        xaxis_title='Year', yaxis_title='Annual Cost ($)',
-        legend=dict(yanchor="top", y=1.1, xanchor="left", x=0)
-    )
-    if show_refinance and refi_start_date:
-        fig_costs.add_vline(x=refi_start_date.year, line_dash="dash", line_color="red", annotation_text="Refinance")
-    if purchase_year and eval_start_year <= purchase_year <= eval_end_year:
-        fig_costs.add_vline(x=purchase_year, line_dash="dash", line_color="blue", annotation_text="Purchase")
-    if payoff_year and eval_start_year <= payoff_year <= eval_end_year:
-        fig_costs.add_vline(x=payoff_year, line_dash="dash", line_color="green", annotation_text="Payoff")
-    st.plotly_chart(fig_costs, use_container_width=True)
+        cost_pct_diff["Cost % Difference"] = cost_pct_diff["Cost % Difference"].fillna(0)  # Handle division by zero
+        fig_cost_pct_diff = px.line(cost_pct_diff, x='Year', y='Cost % Difference', markers=True)
+        fig_cost_pct_diff.update_layout(
+            plot_bgcolor="rgb(245, 245, 245)", paper_bgcolor="rgb(245, 245, 245)",
+            xaxis_title='Year', yaxis_title='Cost % Difference (Buy - Rent) / Rent (%)',
+            showlegend=False
+        )
+        if show_refinance and refi_start_date:
+            fig_cost_pct_diff.add_vline(x=refi_start_date.year, line_dash="dash", line_color="red", annotation_text="Refinance")
+        if purchase_year and eval_start_year <= purchase_year <= eval_end_year:
+            fig_cost_pct_diff.add_vline(x=purchase_year, line_dash="dash", line_color="blue", annotation_text="Purchase")
+        if payoff_year and eval_start_year <= payoff_year <= eval_end_year:
+            fig_cost_pct_diff.add_vline(x=payoff_year, line_dash="dash", line_color="green", annotation_text="Payoff")
+        st.plotly_chart(fig_cost_pct_diff, use_container_width=True)
+        st.markdown("**Note**: Zero values indicate no renting costs for that year, preventing division by zero.")
 
-with tab_cum:
-    cum_cost_data = pd.concat([
-        pd.DataFrame({
-            "Year": cost_comparison_df["Year"],
-            "Cost": cost_comparison_df["Cumulative Buying Cost"],
-            "Type": "Buying"
-        }),
-        pd.DataFrame({
-            "Year": cost_comparison_df["Year"],
-            "Cost": cost_comparison_df["Cumulative Renting Cost"],
-            "Type": "Renting"
-        })
-    ])
-    fig_cum_costs = px.line(cum_cost_data, x='Year', y='Cost', color='Type', markers=True)
-    fig_cum_costs.update_layout(
-        plot_bgcolor="rgb(245, 245, 245)", paper_bgcolor="rgb(245, 245, 245)",
-        xaxis_title='Year', yaxis_title='Cumulative Cost ($)',
-        legend=dict(yanchor="top", y=1.1, xanchor="left", x=0)
-    )
-    if show_refinance and refi_start_date:
-        fig_cum_costs.add_vline(x=refi_start_date.year, line_dash="dash", line_color="red", annotation_text="Refinance")
-    if purchase_year and eval_start_year <= purchase_year <= eval_end_year:
-        fig_cum_costs.add_vline(x=purchase_year, line_dash="dash", line_color="blue", annotation_text="Purchase")
-    if payoff_year and eval_start_year <= payoff_year <= eval_end_year:
-        fig_cum_costs.add_vline(x=payoff_year, line_dash="dash", line_color="green", annotation_text="Payoff")
-    st.plotly_chart(fig_cum_costs, use_container_width=True)
-
-st.divider()
+# One-time vs. Repeating Costs Section
 st.header("One-time vs. Repeating Costs")
-buy_cost_types = pd.DataFrame({
-    'Year': cost_comparison_df['Year'],
-    'One-time': cost_comparison_df['Closing Costs'] + cost_comparison_df['Points Costs'] + cost_comparison_df['Emergency'],
-    'Repeating': cost_comparison_df['Direct Costs (P&I)'] + cost_comparison_df['PMI'] + cost_comparison_df['Property Taxes'] + cost_comparison_df['Home Insurance'] + cost_comparison_df['Maintenance'] + cost_comparison_df['HOA Fees']
-})
-rent_cost_types = pd.DataFrame({
-    'Year': cost_comparison_df['Year'],
-    'One-time': cost_comparison_df['Security Deposit'] + cost_comparison_df['Application Fee'] + (cost_comparison_df['Pet Fees'] if pet_fee_frequency == "One-time" else 0),
-    'Repeating': cost_comparison_df['Rent'] + cost_comparison_df['Renters Insurance'] + cost_comparison_df['Utilities'] + cost_comparison_df['Lease Renewal Fee'] + cost_comparison_df['Parking Fee'] + (cost_comparison_df['Pet Fees'] if pet_fee_frequency == "Annual" else 0)
-})
+st.markdown("Compare one-time (e.g., closing costs, security deposit) and repeating (e.g., P&I, rent) costs over time.")
+with st.container(border=True):
+    buy_cost_types = pd.DataFrame({
+        'Year': cost_comparison_df['Year'],
+        'One-time': cost_comparison_df['Closing Costs'] + cost_comparison_df['Points Costs'] + cost_comparison_df['Emergency'],
+        'Repeating': cost_comparison_df['Direct Costs (P&I)'] + cost_comparison_df['PMI'] + cost_comparison_df['Property Taxes'] + cost_comparison_df['Home Insurance'] + cost_comparison_df['Maintenance'] + cost_comparison_df['HOA Fees']
+    })
+    rent_cost_types = pd.DataFrame({
+        'Year': cost_comparison_df['Year'],
+        'One-time': cost_comparison_df['Security Deposit'] + cost_comparison_df['Application Fee'] + (cost_comparison_df['Pet Fees'] if pet_fee_frequency == "One-time" else 0),
+        'Repeating': cost_comparison_df['Rent'] + cost_comparison_df['Renters Insurance'] + cost_comparison_df['Utilities'] + cost_comparison_df['Lease Renewal Fee'] + cost_comparison_df['Parking Fee'] + (cost_comparison_df['Pet Fees'] if pet_fee_frequency == "Annual" else 0)
+    })
 
-col1, col2 = st.columns(2)
-with col1:
-    st.markdown("### Buying Costs")
-    fig_buy_cost_types = go.Figure()
-    fig_buy_cost_types.add_trace(go.Bar(x=buy_cost_types['Year'], y=buy_cost_types['One-time'], name='One-time'))
-    fig_buy_cost_types.add_trace(go.Bar(x=buy_cost_types['Year'], y=buy_cost_types['Repeating'], name='Repeating'))
-    fig_buy_cost_types.update_layout(
-        barmode='stack',
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("### Buying Costs")
+        fig_buy_cost_types = go.Figure()
+        fig_buy_cost_types.add_trace(go.Bar(x=buy_cost_types['Year'], y=buy_cost_types['One-time'], name='One-time'))
+        fig_buy_cost_types.add_trace(go.Bar(x=buy_cost_types['Year'], y=buy_cost_types['Repeating'], name='Repeating'))
+        fig_buy_cost_types.update_layout(
+            barmode='stack',
+            plot_bgcolor="rgb(245, 245, 245)", paper_bgcolor="rgb(245, 245, 245)",
+            xaxis_title='Year', yaxis_title='Cost ($)',
+            legend=dict(yanchor="top", y=1.1, xanchor="left", x=0)
+        )
+        if show_refinance and refi_start_date:
+            fig_buy_cost_types.add_vline(x=refi_start_date.year, line_dash="dash", line_color="red", annotation_text="Refinance")
+        if purchase_year and eval_start_year <= purchase_year <= eval_end_year:
+            fig_buy_cost_types.add_vline(x=purchase_year, line_dash="dash", line_color="blue", annotation_text="Purchase")
+        if payoff_year and eval_start_year <= payoff_year <= eval_end_year:
+            fig_buy_cost_types.add_vline(x=payoff_year, line_dash="dash", line_color="green", annotation_text="Payoff")
+        st.plotly_chart(fig_buy_cost_types, use_container_width=True)
+
+    with col2:
+        st.markdown("### Renting Costs")
+        fig_rent_cost_types = go.Figure()
+        fig_rent_cost_types.add_trace(go.Bar(x=rent_cost_types['Year'], y=rent_cost_types['One-time'], name='One-time'))
+        fig_rent_cost_types.add_trace(go.Bar(x=rent_cost_types['Year'], y=rent_cost_types['Repeating'], name='Repeating'))
+        fig_rent_cost_types.update_layout(
+            barmode='stack',
+            plot_bgcolor="rgb(245, 245, 245)", paper_bgcolor="rgb(245, 245, 245)",
+            xaxis_title='Year', yaxis_title='Cost ($)',
+            legend=dict(yanchor="top", y=1.1, xanchor="left", x=0)
+        )
+        st.plotly_chart(fig_rent_cost_types, use_container_width=True)
+
+    with st.expander("Detailed Costs Breakdown by Year", expanded=False):
+        cost_breakout = cost_comparison_df[['Year', 'Direct Costs (P&I)', 'PMI', 'Property Taxes', 'Home Insurance', 'Maintenance', 'Emergency', 'HOA Fees', 'Closing Costs', 'Points Costs', 'Total Buying Cost', 'Rent', 'Renters Insurance', 'Security Deposit', 'Utilities', 'Pet Fees', 'Application Fee', 'Lease Renewal Fee', 'Parking Fee', 'Total Renting Cost', 'Cost Difference (Buy - Rent)']]
+        cost_breakout['Year'] = cost_breakout['Year'].astype(str)
+        st.dataframe(cost_breakout.style.format({col: "${:,.2f}" for col in cost_breakout.columns if col != 'Year'}), hide_index=True)
+
+thick_divider()
+
+# Net Asset Value (Assets - Costs) Over Time Section
+st.header("Net Asset Value (Assets - Costs) Over Time")
+st.markdown("Compare net assets (total assets minus cumulative costs) for buying vs. renting over time.")
+with st.container(border=True):
+    net_asset_data = pd.concat([
+        pd.DataFrame({
+            "Year": cost_comparison_df["Year"],
+            "Net Assets": cost_comparison_df["Buying Total Assets"] - cost_comparison_df["Cumulative Buying Cost"],
+            "Type": "Buying"
+        }),
+        pd.DataFrame({
+            "Year": cost_comparison_df["Year"],
+            "Net Assets": cost_comparison_df["Renting Total Assets"] - cost_comparison_df["Cumulative Renting Cost"],
+            "Type": "Renting"
+        })
+    ], ignore_index=True)
+    fig_net_assets = px.line(net_asset_data, x='Year', y='Net Assets', color='Type', markers=True)
+    fig_net_assets.update_layout(
         plot_bgcolor="rgb(245, 245, 245)", paper_bgcolor="rgb(245, 245, 245)",
-        xaxis_title='Year', yaxis_title='Cost ($)',
+        xaxis_title='Year', yaxis_title='Net Assets ($)',
         legend=dict(yanchor="top", y=1.1, xanchor="left", x=0)
     )
     if show_refinance and refi_start_date:
-        fig_buy_cost_types.add_vline(x=refi_start_date.year, line_dash="dash", line_color="red", annotation_text="Refinance")
+        fig_net_assets.add_vline(x=refi_start_date.year, line_dash="dash", line_color="red", annotation_text="Refinance")
     if purchase_year and eval_start_year <= purchase_year <= eval_end_year:
-        fig_buy_cost_types.add_vline(x=purchase_year, line_dash="dash", line_color="blue", annotation_text="Purchase")
+        fig_net_assets.add_vline(x=purchase_year, line_dash="dash", line_color="blue", annotation_text="Purchase")
     if payoff_year and eval_start_year <= payoff_year <= eval_end_year:
-        fig_buy_cost_types.add_vline(x=payoff_year, line_dash="dash", line_color="green", annotation_text="Payoff")
-    st.plotly_chart(fig_buy_cost_types, use_container_width=True)
-
-with col2:
-    st.markdown("### Renting Costs")
-    fig_rent_cost_types = go.Figure()
-    fig_rent_cost_types.add_trace(go.Bar(x=rent_cost_types['Year'], y=rent_cost_types['One-time'], name='One-time'))
-    fig_rent_cost_types.add_trace(go.Bar(x=rent_cost_types['Year'], y=rent_cost_types['Repeating'], name='Repeating'))
-    fig_rent_cost_types.update_layout(
-        barmode='stack',
-        plot_bgcolor="rgb(245, 245, 245)", paper_bgcolor="rgb(245, 245, 245)",
-        xaxis_title='Year', yaxis_title='Cost ($)',
-        legend=dict(yanchor="top", y=1.1, xanchor="left", x=0)
-    )
-    st.plotly_chart(fig_rent_cost_types, use_container_width=True)
-
-with st.expander("Detailed Costs Breakdown by Year", expanded=False):
-    cost_breakout = cost_comparison_df[['Year', 'Direct Costs (P&I)', 'PMI', 'Property Taxes', 'Home Insurance', 'Maintenance', 'Emergency', 'HOA Fees', 'Closing Costs', 'Points Costs', 'Total Buying Cost', 'Rent', 'Renters Insurance', 'Security Deposit', 'Utilities', 'Pet Fees', 'Application Fee', 'Lease Renewal Fee', 'Parking Fee', 'Total Renting Cost', 'Cost Difference (Buy - Rent)']]
-    cost_breakout['Year'] = cost_breakout['Year'].astype(str)
-    st.dataframe(cost_breakout.style.format({col: "${:,.2f}" for col in cost_breakout.columns if col != 'Year'}), hide_index=True)
-st.header("Net Asset Value Over Time")
-net_asset_data = pd.concat([
-    pd.DataFrame({
-        "Year": cost_comparison_df["Year"],
-        "Net Assets": cost_comparison_df["Buying Total Assets"] - cost_comparison_df["Cumulative Buying Cost"],
-        "Type": "Buying"
-    }),
-    pd.DataFrame({
-        "Year": cost_comparison_df["Year"],
-        "Net Assets": cost_comparison_df["Renting Total Assets"] - cost_comparison_df["Cumulative Renting Cost"],
-        "Type": "Renting"
-    })
-])
-fig_net_assets = px.line(net_asset_data, x='Year', y='Net Assets', color='Type', markers=True)
-fig_net_assets.update_layout(
-    plot_bgcolor="rgb(245, 245, 245)", paper_bgcolor="rgb(245, 245, 245)",
-    xaxis_title='Year', yaxis_title='Net Assets ($)',
-    legend=dict(yanchor="top", y=1.1, xanchor="left", x=0)
-)
-if show_refinance and refi_start_date:
-    fig_net_assets.add_vline(x=refi_start_date.year, line_dash="dash", line_color="red", annotation_text="Refinance")
-if purchase_year and eval_start_year <= purchase_year <= eval_end_year:
-    fig_net_assets.add_vline(x=purchase_year, line_dash="dash", line_color="blue", annotation_text="Purchase")
-if payoff_year and eval_start_year <= payoff_year <= eval_end_year:
-    fig_net_assets.add_vline(x=payoff_year, line_dash="dash", line_color="green", annotation_text="Payoff")
-st.plotly_chart(fig_net_assets, use_container_width=True)
+        fig_net_assets.add_vline(x=payoff_year, line_dash="dash", line_color="green", annotation_text="Payoff")
+    st.plotly_chart(fig_net_assets, use_container_width=True)
