@@ -1082,26 +1082,23 @@ with tab2:
     )
 
 st.header("Amortization Breakdown")
+st.header("Amortization Breakdown")
 main_schedule_df['Year'] = main_schedule_df['Date'].dt.year
-no_extra_schedule_df['Year'] = no_extra_schedule_df['Date'].dt.year
 main_annual = main_annual_df.copy()
 main_annual['Year'] = main_annual['Date'].dt.year
-no_extra_annual = no_extra_annual_df.copy()
-no_extra_annual['Year'] = no_extra_annual['Date'].dt.year
 main_annual['Cum Principal'] = main_annual['Principal'].cumsum()
 main_annual['Cum Interest'] = main_annual['Interest'].cumsum()
-main_annual['Cum PMI'] = main_annual['PMI'].cumsum()
-no_extra_annual['Cum Principal'] = no_extra_annual['Principal'].cumsum()
-no_extra_annual['Cum Interest'] = no_extra_annual['Interest'].cumsum()
-no_extra_annual['Cum PMI'] = no_extra_annual['PMI'].cumsum()
+main_annual['Cum PMI'] = main_annual['PMI'].cumsum() if 'PMI' in main_annual.columns else 0.0
+
+tab1, tab2, tab3 = st.tabs(["By Payment", "By Year", "Cumulative Payoff"])
+with tab1:
+    fig_amort_payment = go.Figure()
 
 tab1, tab2, tab3 = st.tabs(["By Payment", "By Year", "Cumulative Payoff"])
 with tab1:
     fig_amort_payment = go.Figure()
     fig_amort_payment.add_trace(go.Scatter(x=main_schedule_df['Date'], y=main_schedule_df['Principal'], mode='lines', name='Principal (With Extra)', line=dict(dash='solid', color='rgba(33, 150, 243, 1)')))
     fig_amort_payment.add_trace(go.Scatter(x=main_schedule_df['Date'], y=main_schedule_df['Interest'], mode='lines', name='Interest (With Extra)', line=dict(dash='solid')))
-    fig_amort_payment.add_trace(go.Scatter(x=no_extra_schedule_df['Date'], y=no_extra_schedule_df['Principal'], mode='lines', name='Principal (No Extra)', line=dict(dash='dot', color='rgba(33, 150, 243, 1)')))
-    fig_amort_payment.add_trace(go.Scatter(x=no_extra_schedule_df['Date'], y=no_extra_schedule_df['Interest'], mode='lines', name='Interest (No Extra)', line=dict(dash='dot')))
     fig_amort_payment.add_trace(go.Bar(x=main_schedule_df['Date'], y=main_schedule_df['PMI'], name='PMI', yaxis='y2', opacity=0.4))
     fig_amort_payment.update_layout(
         plot_bgcolor="rgb(245, 245, 245)", paper_bgcolor="rgb(245, 245, 245)",
@@ -1110,18 +1107,16 @@ with tab1:
     )
     if show_refinance and refi_start_date:
         refi_timestamp = pd.Timestamp(refi_start_date).timestamp() * 1000
-        fig_amort_payment.add_vline(x=refi_timestamp, line_dash="dash", line_color="red", annotation_text="Refinance")
+        fig_amort_payment.add_vline(x=refi_timestamp, line_dash="dash", line_color="orange", annotation_text="Refinance")
     if payoff_year and eval_start_year <= payoff_year <= eval_end_year:
         payoff_timestamp = pd.Timestamp(f"{payoff_year}-01-01").timestamp() * 1000
-        fig_amort_payment.add_vline(x=payoff_timestamp, line_dash="dash", line_color="green", annotation_text="Payoff")
+        fig_amort_payment.add_vline(x=payoff_timestamp, line_dash="dash", line_color="purple", annotation_text="Payoff")
     st.plotly_chart(fig_amort_payment, use_container_width=True)
 
 with tab2:
     fig_amort_year = go.Figure()
     fig_amort_year.add_trace(go.Scatter(x=main_annual['Year'], y=main_annual['Principal'], mode='lines', name='Principal (With Extra)', line=dict(dash='solid', color='rgba(33, 150, 243, 1)')))
     fig_amort_year.add_trace(go.Scatter(x=main_annual['Year'], y=main_annual['Interest'], mode='lines', name='Interest (With Extra)', line=dict(dash='solid')))
-    fig_amort_year.add_trace(go.Scatter(x=no_extra_annual['Year'], y=no_extra_annual['Principal'], mode='lines', name='Principal (No Extra)', line=dict(dash='dot', color='rgba(33, 150, 243, 1)')))
-    fig_amort_year.add_trace(go.Scatter(x=no_extra_annual['Year'], y=no_extra_annual['Interest'], mode='lines', name='Interest (No Extra)', line=dict(dash='dot')))
     fig_amort_year.add_trace(go.Bar(x=main_annual['Year'], y=main_annual['PMI'], name='PMI', yaxis='y2', opacity=0.4))
     fig_amort_year.update_layout(
         plot_bgcolor="rgb(245, 245, 245)", paper_bgcolor="rgb(245, 245, 245)",
@@ -1129,17 +1124,15 @@ with tab2:
         legend=dict(yanchor="top", y=1.1, xanchor="left", x=0)
     )
     if show_refinance and refi_start_date:
-        fig_amort_year.add_vline(x=refi_start_date.year, line_dash="dash", line_color="red", annotation_text="Refinance")
+        fig_amort_year.add_vline(x=refi_start_date.year, line_dash="dash", line_color="orange", annotation_text="Refinance")
     if payoff_year and eval_start_year <= payoff_year <= eval_end_year:
-        fig_amort_year.add_vline(x=payoff_year, line_dash="dash", line_color="green", annotation_text="Payoff")
+        fig_amort_year.add_vline(x=payoff_year, line_dash="dash", line_color="purple", annotation_text="Payoff")
     st.plotly_chart(fig_amort_year, use_container_width=True)
 
 with tab3:
     fig_amort_cum = go.Figure()
     fig_amort_cum.add_trace(go.Scatter(x=main_annual['Year'], y=main_annual['Cum Principal'], mode='lines', name='Principal (With Extra)', line=dict(dash='solid', color='rgba(33, 150, 243, 1)')))
     fig_amort_cum.add_trace(go.Scatter(x=main_annual['Year'], y=main_annual['Cum Interest'], mode='lines', name='Interest (With Extra)', line=dict(dash='solid')))
-    fig_amort_cum.add_trace(go.Scatter(x=no_extra_annual['Year'], y=no_extra_annual['Cum Principal'], mode='lines', name='Principal (No Extra)', line=dict(dash='dot', color='rgba(33, 150, 243, 1)')))
-    fig_amort_cum.add_trace(go.Scatter(x=no_extra_annual['Year'], y=no_extra_annual['Cum Interest'], mode='lines', name='Interest (No Extra)', line=dict(dash='dot')))
     fig_amort_cum.add_trace(go.Bar(x=main_annual['Year'], y=main_annual['Cum PMI'], name='PMI', yaxis='y2', opacity=0.4))
     fig_amort_cum.update_layout(
         plot_bgcolor="rgb(245, 245, 245)", paper_bgcolor="rgb(245, 245, 245)",
@@ -1147,11 +1140,21 @@ with tab3:
         legend=dict(yanchor="top", y=1.1, xanchor="left", x=0)
     )
     if show_refinance and refi_start_date:
-        fig_amort_cum.add_vline(x=refi_start_date.year, line_dash="dash", line_color="red", annotation_text="Refinance")
+        fig_amort_cum.add_vline(x=refi_start_date.year, line_dash="dash", line_color="orange", annotation_text="Refinance")
     if payoff_year and eval_start_year <= payoff_year <= eval_end_year:
-        fig_amort_cum.add_vline(x=payoff_year, line_dash="dash", line_color="green", annotation_text="Payoff")
+        fig_amort_cum.add_vline(x=payoff_year, line_dash="dash", line_color="purple", annotation_text="Payoff")
     st.plotly_chart(fig_amort_cum, use_container_width=True)
 
+st.divider()  # divider between Mortgage Metrics and Savings Comparison
+# Prepare no-extra baseline for savings comparison
+no_extra_annual = no_extra_annual_df.copy()
+no_extra_annual['Year'] = no_extra_annual['Date'].dt.year
+no_extra_annual['Cum Principal'] = no_extra_annual['Principal'].cumsum()
+no_extra_annual['Cum Interest'] = no_extra_annual['Interest'].cumsum()
+if 'PMI' in no_extra_annual.columns:
+    no_extra_annual['Cum PMI'] = no_extra_annual['PMI'].cumsum()
+else:
+    no_extra_annual['Cum PMI'] = 0.0
 st.header("Savings from Extra Payments")
 main_annual['Interest Saved'] = no_extra_annual['Cum Interest'] - main_annual['Cum Interest']
 main_annual['PMI Saved'] = no_extra_annual['Cum PMI'] - main_annual['Cum PMI']
@@ -1164,9 +1167,9 @@ fig_saved_extra.update_layout(
     legend=dict(yanchor="top", y=1.1, xanchor="left", x=0)
 )
 if show_refinance and refi_start_date:
-    fig_saved_extra.add_vline(x=refi_start_date.year, line_dash="dash", line_color="red", annotation_text="Refinance")
+    fig_saved_extra.add_vline(x=refi_start_date.year, line_dash="dash", line_color="orange", annotation_text="Refinance")
 if payoff_year and eval_start_year <= payoff_year <= eval_end_year:
-    fig_saved_extra.add_vline(x=payoff_year, line_dash="dash", line_color="green", annotation_text="Payoff")
+    fig_saved_extra.add_vline(x=payoff_year, line_dash="dash", line_color="purple", annotation_text="Payoff")
 fig_saved_extra.add_hline(y=0, line_dash='dash', line_color='black')
 st.plotly_chart(fig_saved_extra, use_container_width=True)
 
@@ -1235,9 +1238,9 @@ if payment_frequency == "Biweekly":
         legend=dict(yanchor="top", y=1.1, xanchor="left", x=0)
     )
     if show_refinance and refi_start_date:
-        fig_saved_bi.add_vline(x=refi_start_date.year, line_dash="dash", line_color="red", annotation_text="Refinance")
+        fig_saved_bi.add_vline(x=refi_start_date.year, line_dash="dash", line_color="orange", annotation_text="Refinance")
     if payoff_year and eval_start_year <= payoff_year <= eval_end_year:
-        fig_saved_bi.add_vline(x=payoff_year, line_dash="dash", line_color="green", annotation_text="Payoff")
+        fig_saved_bi.add_vline(x=payoff_year, line_dash="dash", line_color="purple", annotation_text="Payoff")
     fig_saved_bi.add_hline(y=0, line_dash='dash', line_color='black')
     st.plotly_chart(fig_saved_bi, use_container_width=True)
 
@@ -1351,11 +1354,11 @@ with st.container(border=True):
             legend=dict(yanchor="top", y=1.1, xanchor="left", x=0)
         )
         if show_refinance and refi_start_date:
-            fig_assets.add_vline(x=refi_start_date.year, line_dash="dash", line_color="red", annotation_text="Refinance")
+            fig_assets.add_vline(x=refi_start_date.year, line_dash="dash", line_color="orange", annotation_text="Refinance")
         if purchase_year and eval_start_year <= purchase_year <= eval_end_year:
             fig_assets.add_vline(x=purchase_year, line_dash="dash", line_color="blue", annotation_text="Purchase")
         if payoff_year and eval_start_year <= payoff_year <= eval_end_year:
-            fig_assets.add_vline(x=payoff_year, line_dash="dash", line_color="green", annotation_text="Payoff")
+            fig_assets.add_vline(x=payoff_year, line_dash="dash", line_color="purple", annotation_text="Payoff")
         st.plotly_chart(fig_assets, use_container_width=True)
 
     with tab_cumulative:
@@ -1371,11 +1374,11 @@ with st.container(border=True):
             legend=dict(yanchor="top", y=1.1, xanchor="left", x=0)
         )
         if show_refinance and refi_start_date:
-            fig_cum_assets.add_vline(x=refi_start_date.year, line_dash="dash", line_color="red", annotation_text="Refinance")
+            fig_cum_assets.add_vline(x=refi_start_date.year, line_dash="dash", line_color="orange", annotation_text="Refinance")
         if purchase_year and eval_start_year <= purchase_year <= eval_end_year:
             fig_cum_assets.add_vline(x=purchase_year, line_dash="dash", line_color="blue", annotation_text="Purchase")
         if payoff_year and eval_start_year <= payoff_year <= eval_end_year:
-            fig_cum_assets.add_vline(x=payoff_year, line_dash="dash", line_color="green", annotation_text="Payoff")
+            fig_cum_assets.add_vline(x=payoff_year, line_dash="dash", line_color="purple", annotation_text="Payoff")
         st.plotly_chart(fig_cum_assets, use_container_width=True)
 
     with tab_pct_diff:
@@ -1392,11 +1395,11 @@ with st.container(border=True):
             showlegend=False
         )
         if show_refinance and refi_start_date:
-            fig_asset_pct_diff.add_vline(x=refi_start_date.year, line_dash="dash", line_color="red", annotation_text="Refinance")
+            fig_asset_pct_diff.add_vline(x=refi_start_date.year, line_dash="dash", line_color="orange", annotation_text="Refinance")
         if purchase_year and eval_start_year <= purchase_year <= eval_end_year:
             fig_asset_pct_diff.add_vline(x=purchase_year, line_dash="dash", line_color="blue", annotation_text="Purchase")
         if payoff_year and eval_start_year <= payoff_year <= eval_end_year:
-            fig_asset_pct_diff.add_vline(x=payoff_year, line_dash="dash", line_color="green", annotation_text="Payoff")
+            fig_asset_pct_diff.add_vline(x=payoff_year, line_dash="dash", line_color="purple", annotation_text="Payoff")
         st.plotly_chart(fig_asset_pct_diff, use_container_width=True)
         st.markdown("**Note**: Zero values indicate no renting assets for that year, preventing division by zero.")
 
@@ -1457,11 +1460,11 @@ with st.container(border=True):
             legend=dict(yanchor="top", y=1.1, xanchor="left", x=0)
         )
         if show_refinance and refi_start_date:
-            fig_costs.add_vline(x=refi_start_date.year, line_dash="dash", line_color="red", annotation_text="Refinance")
+            fig_costs.add_vline(x=refi_start_date.year, line_dash="dash", line_color="orange", annotation_text="Refinance")
         if purchase_year and eval_start_year <= purchase_year <= eval_end_year:
             fig_costs.add_vline(x=purchase_year, line_dash="dash", line_color="blue", annotation_text="Purchase")
         if payoff_year and eval_start_year <= payoff_year <= eval_end_year:
-            fig_costs.add_vline(x=payoff_year, line_dash="dash", line_color="green", annotation_text="Payoff")
+            fig_costs.add_vline(x=payoff_year, line_dash="dash", line_color="purple", annotation_text="Payoff")
         st.plotly_chart(fig_costs, use_container_width=True)
 
     with tab_cum:
@@ -1477,11 +1480,11 @@ with st.container(border=True):
             legend=dict(yanchor="top", y=1.1, xanchor="left", x=0)
         )
         if show_refinance and refi_start_date:
-            fig_cum_costs.add_vline(x=refi_start_date.year, line_dash="dash", line_color="red", annotation_text="Refinance")
+            fig_cum_costs.add_vline(x=refi_start_date.year, line_dash="dash", line_color="orange", annotation_text="Refinance")
         if purchase_year and eval_start_year <= purchase_year <= eval_end_year:
             fig_cum_costs.add_vline(x=purchase_year, line_dash="dash", line_color="blue", annotation_text="Purchase")
         if payoff_year and eval_start_year <= payoff_year <= eval_end_year:
-            fig_cum_costs.add_vline(x=payoff_year, line_dash="dash", line_color="green", annotation_text="Payoff")
+            fig_cum_costs.add_vline(x=payoff_year, line_dash="dash", line_color="purple", annotation_text="Payoff")
         st.plotly_chart(fig_cum_costs, use_container_width=True)
 
     with tab_pct_diff:
@@ -1498,11 +1501,11 @@ with st.container(border=True):
             showlegend=False
         )
         if show_refinance and refi_start_date:
-            fig_cost_pct_diff.add_vline(x=refi_start_date.year, line_dash="dash", line_color="red", annotation_text="Refinance")
+            fig_cost_pct_diff.add_vline(x=refi_start_date.year, line_dash="dash", line_color="orange", annotation_text="Refinance")
         if purchase_year and eval_start_year <= purchase_year <= eval_end_year:
             fig_cost_pct_diff.add_vline(x=purchase_year, line_dash="dash", line_color="blue", annotation_text="Purchase")
         if payoff_year and eval_start_year <= payoff_year <= eval_end_year:
-            fig_cost_pct_diff.add_vline(x=payoff_year, line_dash="dash", line_color="green", annotation_text="Payoff")
+            fig_cost_pct_diff.add_vline(x=payoff_year, line_dash="dash", line_color="purple", annotation_text="Payoff")
         st.plotly_chart(fig_cost_pct_diff, use_container_width=True)
         st.markdown("**Note**: Zero values indicate no renting costs for that year, preventing division by zero.")
 
@@ -1534,11 +1537,11 @@ with st.container(border=True):
             legend=dict(yanchor="top", y=1.1, xanchor="left", x=0)
         )
         if show_refinance and refi_start_date:
-            fig_buy_cost_types.add_vline(x=refi_start_date.year, line_dash="dash", line_color="red", annotation_text="Refinance")
+            fig_buy_cost_types.add_vline(x=refi_start_date.year, line_dash="dash", line_color="orange", annotation_text="Refinance")
         if purchase_year and eval_start_year <= purchase_year <= eval_end_year:
             fig_buy_cost_types.add_vline(x=purchase_year, line_dash="dash", line_color="blue", annotation_text="Purchase")
         if payoff_year and eval_start_year <= payoff_year <= eval_end_year:
-            fig_buy_cost_types.add_vline(x=payoff_year, line_dash="dash", line_color="green", annotation_text="Payoff")
+            fig_buy_cost_types.add_vline(x=payoff_year, line_dash="dash", line_color="purple", annotation_text="Payoff")
         st.plotly_chart(fig_buy_cost_types, use_container_width=True)
 
     with col2:
@@ -1584,286 +1587,559 @@ with st.container(border=True):
         legend=dict(yanchor="top", y=1.1, xanchor="left", x=0)
     )
     if show_refinance and refi_start_date:
-        fig_net_assets.add_vline(x=refi_start_date.year, line_dash="dash", line_color="red", annotation_text="Refinance")
+        fig_net_assets.add_vline(x=refi_start_date.year, line_dash="dash", line_color="orange", annotation_text="Refinance")
     if purchase_year and eval_start_year <= purchase_year <= eval_end_year:
         fig_net_assets.add_vline(x=purchase_year, line_dash="dash", line_color="blue", annotation_text="Purchase")
     if payoff_year and eval_start_year <= payoff_year <= eval_end_year:
-        fig_net_assets.add_vline(x=payoff_year, line_dash="dash", line_color="green", annotation_text="Payoff")
+        fig_net_assets.add_vline(x=payoff_year, line_dash="dash", line_color="purple", annotation_text="Payoff")
     st.plotly_chart(fig_net_assets, use_container_width=True)
 
 
-# =============================================================
-# PATCH: Replace "VTI" label text with "Personal Brokerage Account"
-try:
-    import re as _re_vti
-    def _replace_vti_labels(_s: str) -> str:
-        return _s.replace("VTI", "Personal Brokerage Account").replace("vti", "personal brokerage account")
-except Exception:
-    pass
 
-# =============================================================
-# COST ACCOUNTING PATCH: Treat closing costs, points, and refi costs as homeowner costs (opportunity costs)
-# whether financed or paid upfront, and include them in breakeven logic.
-def _opportunity_cost_series(years, purchase_year, closing_costs=0.0, points_cost=0.0, refi_year=None, refi_costs=0.0):
-    import pandas as pd
-    s = pd.Series(0.0, index=years, name="OpportunityCosts")
-    if purchase_year in s.index:
-        s.loc[purchase_year] += float(closing_costs or 0.0) + float(points_cost or 0.0)
-    if refi_year and refi_year in s.index:
-        s.loc[refi_year] += float(refi_costs or 0.0)
-    return s
 
-def _inject_opportunity_costs_into_cost_df(cost_df, purchase_year, closing_costs, points_cost, refi_year, refi_costs):
+
+
+# =====================================================
+# =====================================================
+
+st.caption("Monthly payments reflect refinancing and points buy-down. "
+           "Biweekly schedule is shown only if selected.")
+
+colL, colR = st.columns(2)
+
+with colL:
+    st.markdown("**Monthly Payments**")
     try:
-        years = cost_df["Year"]
-        s = _opportunity_cost_series(years, purchase_year, closing_costs, points_cost, refi_year, refi_costs)
-        if "Total Homeowner Costs" in cost_df.columns:
-            base = cost_df["Total Homeowner Costs"].astype(float)
-        elif "Buy Costs" in cost_df.columns:
-            base = cost_df["Buy Costs"].astype(float)
-        else:
-            return cost_df
-        cost_df["Homeowner Costs (Incl. CC/Points/Refi)"] = base + s.values
-        rent_col = "Rent Costs" if "Rent Costs" in cost_df.columns else None
-        if rent_col:
-            cost_df["Cost Difference (Buy - Rent) [Incl. CC/Points/Refi]"] = cost_df["Homeowner Costs (Incl. CC/Points/Refi)"] - cost_df[rent_col].astype(float)
+        monthly_payment_display = f"${monthly_payment:,.2f}"
+    except Exception:
+        monthly_payment_display = "N/A"
+    st.metric(label="Monthly Payment (incl. P&I, PMI if applicable)", value=monthly_payment_display)
+
+    try:
+        st.metric(label="Effective Interest Rate (after points/refi)", value=f"{effective_rate:.2%}")
     except Exception:
         pass
-    return cost_df
 
+with colR:
+    if 'biweekly' in globals() and biweekly:
+        st.markdown("**Biweekly Payments**")
+        try:
+            biweekly_payment_display = f"${biweekly_payment:,.2f}"
+        except Exception:
+            biweekly_payment_display = "N/A"
+        st.metric(label="Biweekly Payment (if selected)", value=biweekly_payment_display)
+
+
+# =====================================================
+# 4) Investment Simulation — Stochastic (t for brokerage, lognormal for housing)
+#    NOTE: Sections 1–3 are deterministic (fixed assumptions) to set a baseline.
+#          Sections 4–5 introduce statistical modeling to capture uncertainty.
+# =====================================================
 try:
-    if 'cost_comparison_df' in locals():
-        _purchase_year = purchase_year if 'purchase_year' in locals() else None
-        _refi_year = refi_start_date.year if ('refi_start_date' in locals() and refi_start_date) else (refi_date.year if 'refi_date' in locals() and refi_date else None)
-        _closing_costs = closing_costs if 'closing_costs' in locals() else 0.0
-        _points_cost = points_cost if 'points_cost' in locals() else (points * (purchase_price - down_payment) / 100 if 'points' in locals() else 0.0)
-        _refi_costs_val = refi_costs if 'refi_costs' in locals() else 0.0
-        cost_comparison_df = _inject_opportunity_costs_into_cost_df(cost_comparison_df, _purchase_year, _closing_costs, _points_cost, _refi_year, _refi_costs_val)
+    section_header("4) Investment Simulation — Stochastic", "Deterministic baseline above; uncertainty introduced here")
 except Exception:
-    pass
+    st.header("4) Investment Simulation — Stochastic")
 
-def calculate_breakeven_including_opportunity_costs(cost_df):
-    """Return breakeven year counting closing/points/refi as costs regardless of financing."""
+# -----------------------------------------------------
+# Explanatory container and parameter inputs
+# -----------------------------------------------------
+with st.container(border=True):
+    st.markdown("**Sections 1–3 are deterministic.** They use fixed returns for clarity and baseline understanding. "
+                "**Sections 4–5** introduce uncertainty using statistical distributions.")
+    colA, colB, colC = st.columns([1,1,1])
+    with colA:
+        t_mean = st.number_input("Brokerage annual mean (%)", value=st.session_state.get("brokerage_mean_pct", 7.0), step=0.1, key="t_mean_pct")
+        t_std  = st.number_input("Brokerage annual std. dev. (%)", value=st.session_state.get("brokerage_std_pct", 15.0), step=0.5, key="t_std_pct")
+    with colB:
+        t_df   = st.number_input("Brokerage t-dist degrees of freedom (ν>2)", value=st.session_state.get("brokerage_df", 7), min_value=3, max_value=1000, step=1, key="t_df")
+        rng_seed_one = st.text_input("Optional seed (single-path)", value=st.session_state.get("seed_one", ""), help="Set a number for reproducible single-path simulation.")
+    with colC:
+        ln_mean = st.number_input("Housing annual mean (%)", value=st.session_state.get("housing_mean_pct", 3.0), step=0.1, key="ln_mean_pct")
+        ln_std  = st.number_input("Housing annual std. dev. (%)", value=st.session_state.get("housing_std_pct", 8.0), step=0.5, key="ln_std_pct")
+
+    # Advanced parameters (to retain prior visuals and controls)
+    with st.expander("Advanced simulation parameters (for median-path visuals, from earlier version)", expanded=False):
+        col1, col2, col3 = st.columns(3)
+        t_scale = col1.number_input("t-distribution scale (stdev, as decimal)", min_value=0.0, value=0.18, step=0.01, format="%.2f")
+        t_loc   = col2.number_input("t-distribution location (mean, as decimal)", min_value=-1.0, max_value=1.0, value=0.07, step=0.01, format="%.2f")
+        ln_mu   = col3.number_input("Lognormal μ (log-mean of gross 1+r)", value=0.03, step=0.005, format="%.3f")
+        ln_sigma = col1.number_input("Lognormal σ (vol of log 1+r)", min_value=0.0, value=0.12, step=0.01, format="%.2f")
+        n_years_sim = col2.number_input("Years to simulate (for median visuals)", min_value=1, max_value=60, value=30, step=1, key="n_years_sim_adv")
+        n_trials_med = col3.number_input("Trials (for median visuals)", min_value=500, max_value=10000, value=2500, step=100, key="n_trials_med")
+
+    # Years horizon follows the cost comparison if available
     try:
-        import numpy as _np
-        col = "Cost Difference (Buy - Rent) [Incl. CC/Points/Refi]"
-        if col not in cost_df.columns and "Cost Difference (Buy - Rent)" in cost_df.columns:
-            col = "Cost Difference (Buy - Rent)"
-        diff = cost_df[col].astype(float).values
-        cum = diff.cumsum()
-        years = cost_df["Year"].values
-        idx = _np.where(cum <= 0)[0]
-        if idx.size == 0:
-            return None, None
-        first_idx = int(idx[0])
-        return int(years[first_idx]), first_idx
+        years_list = cost_comparison_df["Year"].tolist()
     except Exception:
-        return None, None
+        try:
+            years_list = list(range(purchase_year, purchase_year + loan_years + 1))
+        except Exception:
+            years_list = list(range(1, int(n_years_sim)+1))
+    n_years = len(years_list)
 
-# =============================================================
-# UNIFIED MORTGAGE METRICS DISPLAY
-try:
-    section_header("Mortgage Metrics (Unified)", "Monthly vs Biweekly (biweekly shown only if selected)")
-except Exception:
-    st.header("Mortgage Metrics (Unified)")
+    import numpy as np
+    import pandas as pd
+    import plotly.express as px
+    import plotly.graph_objects as go
+    from datetime import datetime
 
-try:
-    use_biweekly = False
-    for _name in ["use_biweekly", "enable_biweekly", "biweekly_enabled"]:
-        if _name in locals():
-            use_biweekly = bool(locals()[_name])
-            break
-    principal = float(purchase_price - down_payment)
-    rate = refi_effective_rate if ('show_refinance' in locals() and show_refinance and 'refi_effective_rate' in locals()) else (mortgage_rate if 'mortgage_rate' in locals() else (annual_interest_rate if 'annual_interest_rate' in locals() else 0.0))
-    years = int(term_years if 'term_years' in locals() else loan_years if 'loan_years' in locals() else 30)
-    periods_per_year = 12
-    import numpy_financial as _npf
-    monthly_payment = -_npf.pmt(rate/periods_per_year, years*periods_per_year, principal) if rate else principal/(years*periods_per_year)
+    # Helpers to align with requested parameterization
+    def sample_t_returns(n, mean_pct, std_pct, df, rng):
+        mean = mean_pct/100.0
+        std  = std_pct/100.0
+        # standard Student t: var = df/(df-2). Scale to unit variance then to target std.
+        t = rng.standard_t(df, size=n)
+        t_unit = t * np.sqrt((df-2)/df)
+        return mean + std * t_unit
 
-    colL, colR = st.columns(2)
-    with colL:
-        st.subheader("Monthly Payments")
-        st.markdown("_Includes effects of points buydown and refinancing when applicable._")
-        st.metric("Principal & Interest (Monthly)", f"${monthly_payment:,.2f}")
+    def sample_lognormal_returns(n, mean_pct, std_pct, rng):
+        # Fit lognormal for gross 1+r given arithmetic mean/stdev of r
+        m = 1.0 + mean_pct/100.0
+        s = std_pct/100.0
+        sigma2 = np.log(1 + (s**2)/(m**2))
+        sigma = np.sqrt(sigma2)
+        mu = np.log(m) - 0.5*sigma2
+        gross = rng.lognormal(mean=mu, sigma=sigma, size=n)
+        return gross - 1.0
 
-    if use_biweekly or ('refi_payment_frequency' in locals() and str(refi_payment_frequency).lower().startswith('bi')):
-        with colR:
-            st.subheader("Biweekly Payments")
-            periods_per_year_bi = 26
-            bi_payment = -_npf.pmt(rate/periods_per_year_bi, years*periods_per_year_bi, principal) if rate else principal/(years*periods_per_year_bi)
-            st.metric("Payment per Period (Biweekly)", f"${bi_payment:,.2f}")
-except Exception as _unified_err:
-    pass
-
-# =============================================================
-# ASSET METRICS: Equity decomposition
-try:
-    import pandas as _pd
-    _annual = annual_df.copy() if 'annual_df' in locals() else None
-    if _annual is not None and 'Year' in _annual.columns and 'Principal Paid' in _annual.columns:
-        _annual['Equity: Down Payment'] = float(down_payment if 'down_payment' in locals() else 0.0)
-        _annual['Equity: From Payments'] = _annual['Principal Paid'].cumsum()
-        _annual['Equity: Extra Principal'] = _annual['Additional Principal Paid'].cumsum() if 'Additional Principal Paid' in _annual.columns else 0.0
-        with st.expander("Equity Breakdown (Down Payment vs Payment Equity vs Extra Principal)"):
-            st.dataframe(_annual[['Year','Equity: Down Payment','Equity: From Payments','Equity: Extra Principal']].style.format({"Equity: Down Payment":"${:,.0f}","Equity: From Payments":"${:,.0f}","Equity: Extra Principal":"${:,.0f}"}), use_container_width=True)
-except Exception:
-    pass
-
-# =============================================================
-# NET ASSET VALUE tabs (annual vs cumulative)
-try:
-    if 'cost_comparison_df' in locals():
-        _cdf = cost_comparison_df.copy()
-        if 'Total Assets (Buy)' in _cdf.columns and 'Total Assets (Rent)' in _cdf.columns:
-            _cdf['Net (Buy)'] = _cdf['Total Assets (Buy)'] - (_cdf['Homeowner Costs (Incl. CC/Points/Refi)'] if 'Homeowner Costs (Incl. CC/Points/Refi)' in _cdf.columns else _cdf.get('Total Homeowner Costs', _cdf['Buy Costs']))
-            _cdf['Net (Rent)'] = _cdf['Total Assets (Rent)'] - _cdf.get('Rent Costs', 0)
-            _cdf['Cum Net (Buy)'] = _cdf['Net (Buy)'].cumsum()
-            _cdf['Cum Net (Rent)'] = _cdf['Net (Rent)'].cumsum()
-            tab1, tab2 = st.tabs(["Net Asset Value (Annual)", "Net Asset Value (Cumulative)"])
-            with tab1:
-                fig_nav = px.line(_cdf.melt(id_vars=['Year'], value_vars=['Net (Buy)','Net (Rent)'], var_name='Type', value_name='Net'), x='Year', y='Net', color='Type', markers=True)
-                if 'purchase_year' in locals() and purchase_year:
-                    fig_nav.add_vline(x=purchase_year, line_dash="dash", line_color="blue", annotation_text="Purchase")
-                if 'refi_start_date' in locals() and refi_start_date:
-                    fig_nav.add_vline(x=refi_start_date.year, line_dash="dash", line_color="red", annotation_text="Refinance")
-                st.plotly_chart(fig_nav, use_container_width=True)
-            with tab2:
-                fig_cum = px.line(_cdf.melt(id_vars=['Year'], value_vars=['Cum Net (Buy)','Cum Net (Rent)'], var_name='Type', value_name='Cumulative Net'), x='Year', y='Cumulative Net', color='Type', markers=True)
-                if 'purchase_year' in locals() and purchase_year:
-                    fig_cum.add_vline(x=purchase_year, line_dash="dash", line_color="blue", annotation_text="Purchase")
-                if 'refi_start_date' in locals() and refi_start_date:
-                    fig_cum.add_vline(x=refi_start_date.year, line_dash="dash", line_color="red", annotation_text="Refinance")
-                st.plotly_chart(fig_cum, use_container_width=True)
-except Exception:
-    pass
-
-# =============================================================
-# 4. Investment Simulation
-try:
-    section_header("4. Investment Simulation", "t-dist for brokerage, lognormal for house appreciation")
-except Exception:
-    st.header("4. Investment Simulation")
-
-try:
-    import numpy as _np
-    import pandas as _pd
-    with st.expander("Simulation Parameters", expanded=False):
-        c1, c2, c3 = st.columns(3)
-        t_df = c1.number_input("t-distribution degrees of freedom (brokerage)", min_value=2, max_value=200, value=7, step=1)
-        t_scale = c2.number_input("t-distribution scale (annualized % stdev)", min_value=0.0, value=0.18, step=0.01, format="%.2f")
-        t_loc = c3.number_input("t-distribution location (annualized mean %)", min_value=-1.0, max_value=1.0, value=0.07, step=0.01, format="%.2f")
-        ln_mu = c1.number_input("Lognormal mu (house appreciation, in log terms)", value=0.03, step=0.005, format="%.3f")
-        ln_sigma = c2.number_input("Lognormal sigma (house appreciation)", min_value=0.0, value=0.12, step=0.01, format="%.2f")
-        n_years_sim = c3.number_input("Years to simulate", min_value=1, max_value=60, value=30, step=1)
-        n_trials = c1.number_input("Monte Carlo trials", min_value=100, max_value=10000, value=2500, step=100)
-    years_idx = _np.arange(int(n_years_sim))
-    rng = _np.random.default_rng(12345)
-    r_t = t_loc + t_scale * rng.standard_t(df=t_df, size=(int(n_trials), int(n_years_sim)))
-    z = rng.standard_normal(size=(int(n_trials), int(n_years_sim)))
-    g_logn = _np.exp(ln_mu + ln_sigma * z) - 1.0
-
-    home_value0 = float(purchase_price) if 'purchase_price' in locals() else 0.0
-    brokerage0_buy = float(0.0)
-    brokerage0_rent = float(down_payment if 'down_payment' in locals() else 0.0)
-
-    brokerage_paths = _np.cumprod(1 + r_t, axis=1) * brokerage0_rent
-    brokerage_paths_buy = _np.cumprod(1 + r_t, axis=1) * brokerage0_buy
-    house_paths = _np.cumprod(1 + g_logn, axis=1) * home_value0
-
-    if 'annual_df' in locals() and 'Principal Paid' in annual_df.columns:
-        eq_from_payments = annual_df['Principal Paid'].cumsum().values
-        eq_from_payments = _np.interp(_np.arange(n_years_sim), _np.arange(len(eq_from_payments)), eq_from_payments, left=0, right=eq_from_payments[-1] if len(eq_from_payments) else 0)
+    # Single-path RNG
+    if rng_seed_one.strip():
+        try:
+            seed_val = int(rng_seed_one.strip())
+        except:
+            seed_val = None
     else:
-        eq_from_payments = _np.linspace(0, home_value0*0.3, int(n_years_sim))
+    # if empty string, we keep None for non-deterministic run
+        seed_val = None
+    rng = np.random.default_rng(seed_val)
 
-    med_house = _np.median(house_paths, axis=0)
-    med_broker_buy = _np.median(brokerage_paths_buy, axis=0)
-    med_broker_rent = _np.median(brokerage_paths, axis=0)
+    bro_ret = sample_t_returns(n_years, t_mean, t_std, t_df, rng)
+    home_ret = sample_lognormal_returns(n_years, ln_mean, ln_std, rng)
+
+    # Pull baseline inputs (with safe fallbacks)
+    try:
+        current_rent = cost_of_rent
+        current_renters_insurance = renters_insurance
+        current_deposit = security_deposit
+        current_utilities = rental_utilities
+        current_pet_fee = pet_fee
+        current_parking = parking_fee
+    except Exception:
+        current_rent = 2000.0
+        current_renters_insurance = 300.0
+        current_deposit = 2000.0
+        current_utilities = 2000.0
+        current_pet_fee = 0.0
+        current_parking = 0.0
+
+    # Annual amortization basis (ensure annual_df exists)
+    if 'annual_df' not in globals():
+        try:
+            annual_df = main_annual_df.copy()
+        except Exception:
+            if 'cost_comparison_df' in locals():
+                annual_df = cost_comparison_df.copy()
+            else:
+                annual_df = pd.DataFrame()
+            annual_df = pd.DataFrame()
+    # Ensure Date column exists if we depend on .dt
+    if 'Date' not in annual_df.columns:
+        if isinstance(annual_df.index, pd.DatetimeIndex):
+            annual_df = annual_df.reset_index().rename(columns={"index": "Date"})
+        else:
+            # fabricate a yearly Date for safety (won't affect sums if unused)
+            start_date = datetime.today()
+            if len(annual_df) == 0:
+                annual_df = pd.DataFrame({"Date": pd.date_range(start=start_date, periods=n_years, freq="Y")})
+            else:
+                annual_df["Date"] = pd.date_range(start=start_date, periods=len(annual_df), freq="Y")
+
+    home_value = float(purchase_price) if 'purchase_price' in globals() else 0.0
+    base_home_value = float(purchase_price) if 'purchase_price' in globals() else 0.0
+    buy_investment = 0.0    # brokerage associated to Buy scenario (from cost differences)
+    rent_investment = float(down_payment if 'down_payment' in globals() else 0.0) + float(security_deposit if 'security_deposit' in globals() else 0.0)
+
+    buy_nw_path = []
+    rent_nw_path = []
+    comp_down = []
+    comp_amort = []
+    comp_extra = []
+    comp_apprec = []
+    comp_broker = []
+
+    # ---------- Single-path engine (stochastic) ----------
+    for i, year in enumerate(years_list):
+        # Mortgage-linked items for this calendar year
+        if 'Date' in annual_df.columns and not annual_df.empty and year in annual_df["Date"].dt.year.values:
+            mask = (annual_df["Date"].dt.year == year)
+            p_and_i = annual_df.loc[mask, "P&I"].sum() if "P&I" in annual_df.columns else 0.0
+            pmi = annual_df.loc[mask, "PMI"].sum() if "PMI" in annual_df.columns else 0.0
+            year_balance = annual_df.loc[mask, "Balance"].iloc[-1] if "Balance" in annual_df.columns else 0.0
+            extra_prin = annual_df.loc[mask, "Extra Principal Payments"].sum() if "Extra Principal Payments" in annual_df.columns else 0.0
+            sched_prin = annual_df.loc[mask, "Principal"].sum() if "Principal" in annual_df.columns else 0.0
+        else:
+            p_and_i = 0.0; pmi = 0.0; year_balance = 0.0; extra_prin = 0.0; sched_prin = 0.0
+
+        # Indirect/recurring housing costs (deterministic inflation, baseline)
+        def _infl(base, pct, yrs):
+            try:
+                return float(base) * ((1 + float(pct)/100.0) ** float(yrs))
+            except Exception:
+                return 0.0
+
+        yr_idx = i if 'purchase_year' not in globals() else (year - purchase_year)
+        year_taxes = _infl(taxes if 'taxes' in globals() else 0.0, annual_property_tax_increase if 'annual_property_tax_increase' in globals() else 0.0, yr_idx)
+        year_insurance = _infl(insurance if 'insurance' in globals() else 0.0, annual_insurance_increase if 'annual_insurance_increase' in globals() else 0.0, yr_idx)
+        year_maintenance = _infl(maintenance if 'maintenance' in globals() else 0.0, annual_maintenance_increase if 'annual_maintenance_increase' in globals() else 0.0, yr_idx)
+        year_hoa = _infl(hoa if 'hoa' in globals() else 0.0, annual_hoa_increase if 'annual_hoa_increase' in globals() else 0.0, yr_idx)
+
+        # One-time costs treated as homeowner costs regardless of financing (opportunity cost)
+        add_purchase_closing = float(closing_costs if 'closing_costs' in globals() else 0.0) if (('purchase_year' in globals()) and (year == purchase_year)) else 0.0
+        add_purchase_points  = float(points_cost if 'points_cost' in globals() else 0.0) if (('purchase_year' in globals()) and (year == purchase_year)) else 0.0
+        add_refi_points = 0.0
+        try:
+            if 'show_refinance' in globals() and show_refinance and 'refi_start_date' in globals() and refi_start_date and refi_start_date.year == year:
+                add_refi_points = float(refi_points_cost) if 'refi_points_cost' in globals() else float(refi_costs) if 'refi_costs' in globals() else 0.0
+        except Exception:
+            pass
+
+        indirect_costs = pmi + year_taxes + year_insurance + year_maintenance + year_hoa + add_purchase_closing + add_purchase_points + add_refi_points
+        buy_cost = p_and_i + indirect_costs
+
+        # Renting costs
+        year_rent = float(current_rent) * 12.0
+        year_renters_insurance = float(current_renters_insurance)
+        year_deposit = float(current_deposit) if year == years_list[0] else 0.0
+        year_utilities = float(current_utilities)
+        year_pet_fee = float(current_pet_fee) if (('pet_fee_frequency' in globals() and pet_fee_frequency=='Annual') or (year==years_list[0])) else 0.0
+        year_application_fee = float(application_fee) if 'application_fee' in globals() and year == years_list[0] else 0.0
+        year_renewal_fee = float(lease_renewal_fee) if 'lease_renewal_fee' in globals() and year > years_list[0] else 0.0
+        year_parking = float(current_parking)
+
+        rent_cost = year_rent + year_renters_insurance + year_deposit + year_utilities + year_pet_fee + year_application_fee + year_renewal_fee + year_parking
+
+        # Update home value stochastically
+        home_value *= (1 + home_ret[i])
+
+        # Equity composition
+        equity_principal = float(purchase_price if 'purchase_price' in globals() else 0.0) - float(year_balance)
+        appreciation = home_value - base_home_value
+        equity_total = equity_principal + max(0.0, appreciation)
+
+        # Invest cost differences using SAME brokerage draw (apples-to-apples)
+        r_b = bro_ret[i]
+        if buy_cost > rent_cost:
+            rent_investment = rent_investment * (1 + r_b) + (buy_cost - rent_cost)
+            buy_investment = buy_investment * (1 + r_b)
+        else:
+            buy_investment = buy_investment * (1 + r_b) + (rent_cost - buy_cost)
+            rent_investment = rent_investment * (1 + r_b)
+
+        buy_total_assets = equity_total + buy_investment
+        rent_total_assets = rent_investment
+
+        buy_nw_path.append(buy_total_assets)
+        rent_nw_path.append(rent_total_assets)
+
+        comp_down.append(float(down_payment) if 'down_payment' in globals() else 0.0 if i>0 else float(down_payment) if 'down_payment' in globals() else 0.0)
+        comp_amort.append(max(0.0, equity_principal))
+        comp_extra.append(float(extra_prin))
+        comp_apprec.append(max(0.0, appreciation))
+        comp_broker.append(max(0.0, buy_investment))
+
+        # Inflate renter side items for next year
+        infl = (1 + float(annual_rent_increase if 'annual_rent_increase' in globals() else 0.0) / 100.0)
+        current_rent *= infl
+        current_renters_insurance *= infl
+        current_utilities *= infl
+        current_parking *= infl
+        if 'pet_fee_frequency' in globals() and pet_fee_frequency == "Annual":
+            current_pet_fee *= infl
+
+    # ---------------- Visuals: Single-path (NEW) ----------------
+    x = years_list
+    fig_one = go.Figure()
+    fig_one.add_trace(go.Scatter(x=x, y=buy_nw_path, mode="lines", name="Buy — Net Worth (stochastic)"))
+    fig_one.add_trace(go.Scatter(x=x, y=rent_nw_path, mode="lines", name="Rent — Net Worth (stochastic)"))
+    if 'refi_start_date' in globals() and refi_start_date:
+        fig_one.add_vline(x=refi_start_date.year, line_dash="dash", line_color="orange")
+    if 'purchase_year' in globals():
+        fig_one.add_vline(x=purchase_year, line_dash="dash", line_color="blue")
+    st.plotly_chart(fig_one, use_container_width=True)
+
+    st.caption("Monthly payment logic (from Sections 1–3) reflects points buy-downs and any refinance you specified. "
+               "In Sections 4–5, **points and refinance costs are counted as homeowner costs** regardless of whether they were financed or paid upfront (opportunity cost). "
+               "Vertical dashed lines mark **purchase** (blue) and **refinance** (orange) years.")
+
+# ---------------- Visuals: Distributions (NEW) ----------------
+with st.expander("See the distributions (based on your parameters)", expanded=False):
+    rng_vis = np.random.default_rng(seed_val if 'seed_val' in globals() and seed_val is not None else None)
+    vis_bro = sample_t_returns(10000, t_mean, t_std, t_df, rng_vis)
+    vis_home = sample_lognormal_returns(10000, ln_mean, ln_std, rng_vis)
+    fig_d1 = px.histogram(x=vis_bro*100, nbins=60, title="Brokerage: t-distribution (annual %)", labels={'x':'% return'})
+    fig_d2 = px.histogram(x=vis_home*100, nbins=60, title="Housing: lognormal (annual %)", labels={'x':'% return'})
+    st.plotly_chart(fig_d1, use_container_width=True)
+    st.plotly_chart(fig_d2, use_container_width=True)
+    st.caption("t-distribution is scaled to your mean & stdev; housing uses a lognormal on gross (1+r) with parameters fitted from your mean & stdev.")
+
+# ---------------- Visuals: Median-path (from earlier version) ----------------
+with st.expander("Additional visuals (median paths & stacked assets, from earlier version)", expanded=True):
+    # Use advanced parameters to keep prior charts
+    rng_med = np.random.default_rng(12345)
+    Tm = int(n_years_sim) if 'n_years_sim' in globals() else max(1, len(years_list))
+    Nm = int(n_trials_med) if 'n_trials_med' in globals() else 2500
+    r_t = t_loc + t_scale * rng_med.standard_t(df=t_df, size=(Nm, Tm))
+    z = rng_med.standard_normal(size=(Nm, Tm))
+    g_logn = np.exp(ln_mu + ln_sigma * z) - 1.0
+
+    home_value0 = float(purchase_price) if 'purchase_price' in globals() else 0.0
+    brokerage0_buy = 0.0
+    brokerage0_rent = float(down_payment if 'down_payment' in globals() else 0.0)
+
+    brokerage_paths = np.cumprod(1 + r_t, axis=1) * brokerage0_rent
+    brokerage_paths_buy = np.cumprod(1 + r_t, axis=1) * brokerage0_buy
+    house_paths = np.cumprod(1 + g_logn, axis=1) * home_value0
+
+    # Equity from payments (interpolated to Tm)
+    if 'annual_df' in globals() and 'Principal Paid' in annual_df.columns:
+        eq_from_payments = annual_df['Principal Paid'].cumsum().values
+        eq_from_payments = np.interp(np.arange(Tm), np.arange(len(eq_from_payments)), eq_from_payments, left=0, right=(eq_from_payments[-1] if len(eq_from_payments) else 0))
+    else:
+        eq_from_payments = np.linspace(0, home_value0*0.3, Tm)
+
+    med_house = np.median(house_paths, axis=0)
+    med_broker_buy = np.median(brokerage_paths_buy, axis=0)
+    med_broker_rent = np.median(brokerage_paths, axis=0)
 
     colB, colR = st.columns(2)
     with colB:
         st.subheader("Buy — Stacked Assets (Median)")
-        df_buy_stack = _pd.DataFrame({
-            "Year": _np.arange(1, int(n_years_sim)+1),
-            "Equity (Payments)": eq_from_payments[:int(n_years_sim)],
-            "Appreciation (Simulated)": _np.maximum(med_house - home_value0, 0.0)[:int(n_years_sim)],
-            "Brokerage (Simulated)": med_broker_buy[:int(n_years_sim)]
+        df_buy_stack = pd.DataFrame({
+            "Year": np.arange(1, Tm+1),
+            "Equity (Payments)": eq_from_payments[:Tm],
+            "Appreciation (Simulated)": np.maximum(med_house - home_value0, 0.0)[:Tm],
+            "Brokerage (Simulated)": med_broker_buy[:Tm]
         })
         dfm = df_buy_stack.melt(id_vars=['Year'], var_name='Component', value_name='Value')
         fig_stack = px.bar(dfm, x='Year', y='Value', color='Component', barmode='stack')
         st.plotly_chart(fig_stack, use_container_width=True)
     with colR:
         st.subheader("Rent — Brokerage (Median)")
-        df_rent_line = _pd.DataFrame({"Year": _np.arange(1, int(n_years_sim)+1), "Brokerage (Simulated)": med_broker_rent[:int(n_years_sim)]})
+        df_rent_line = pd.DataFrame({"Year": np.arange(1, Tm+1), "Brokerage (Simulated)": med_broker_rent[:Tm]})
         fig_rent = px.line(df_rent_line, x='Year', y='Brokerage (Simulated)', markers=True)
         st.plotly_chart(fig_rent, use_container_width=True)
 
-    st.subheader("Distributions and Uncertainty")
-    c1, c2 = st.columns(2)
-    import plotly.graph_objects as go
-    with c1:
-        fig_t = go.Figure()
-        fig_t.add_histogram(x=r_t.flatten(), nbinsx=60, name="t-dist draws")
-        fig_t.update_layout(title="t-distribution (Brokerage Returns) — draws", barmode='overlay')
-        st.plotly_chart(fig_t, use_container_width=True)
-    with c2:
-        fig_ln = go.Figure()
-        fig_ln.add_histogram(x=g_logn.flatten(), nbinsx=60, name="lognormal draws")
-        fig_ln.update_layout(title="Lognormal (House Appreciation) — draws", barmode='overlay')
-        st.plotly_chart(fig_ln, use_container_width=True)
-except Exception as _sim_err:
-    st.info(f"Simulation section skipped due to: {_sim_err}")
-
-# =============================================================
-# 5. Monte Carlo — % wins per year and box plots
 try:
-    section_header("5. Monte Carlo Outcome Comparison", "Percent of trials each scenario wins (Net Worth) + box plots")
+    thick_divider()
 except Exception:
-    st.header("5. Monte Carlo Outcome Comparison")
+    pass
 
+# =====================================================
+# 5) Monte Carlo — Probabilistic Outcomes
+# =====================================================
 try:
-    import numpy as _np
-    import pandas as _pd
-    if 'r_t' not in locals() or 'g_logn' not in locals():
-        rng = _np.random.default_rng(12345)
-        t_df = 7; t_scale = 0.18; t_loc = 0.07; ln_mu = 0.03; ln_sigma = 0.12; n_years_sim = 30; n_trials = 2500
-        r_t = t_loc + t_scale * rng.standard_t(df=t_df, size=(int(n_trials), int(n_years_sim)))
-        z = rng.standard_normal(size=(int(n_trials), int(n_years_sim)))
-        g_logn = _np.exp(ln_mu + ln_sigma * z) - 1.0
+    section_header("5) Monte Carlo — Probabilistic Outcomes", "")
+except Exception:
+    st.header("5) Monte Carlo — Probabilistic Outcomes")
 
-    home_value0 = float(purchase_price) if 'purchase_price' in locals() else 0.0
-    brokerage0_buy = float(0.0)
-    brokerage0_rent = float(down_payment if 'down_payment' in locals() else 0.0)
+with st.container(border=True):
+    col1, col2, col3 = st.columns([1,1,1])
+    with col1:
+        n_trials = st.number_input("Number of trials", value=5000, min_value=100, max_value=20000, step=100,
+                                   help="More trials improves stability but takes longer.")
+    with col2:
+        seed_text = st.text_input("Optional seed (Monte Carlo)", value="", help="Set a number for reproducible runs.")
+    with col3:
+        st.info("Primary chart shows **Buy probability** each year. Rent probability = 1 − Buy.")
+    if n_trials > 10000:
+        st.warning("High trial count may be slow. Consider using a seed for reproducibility.")
 
-    broker_buy = _np.cumprod(1 + r_t, axis=1) * brokerage0_buy
-    broker_rent = _np.cumprod(1 + r_t, axis=1) * brokerage0_rent
-    house_paths = _np.cumprod(1 + g_logn, axis=1) * home_value0
-
-    if 'cost_comparison_df' in locals():
-        _cdf_local = cost_comparison_df.copy()
-        buy_costs = _cdf_local.get('Homeowner Costs (Incl. CC/Points/Refi)', _cdf_local.get('Total Homeowner Costs', _cdf_local.get('Buy Costs', 0))).cumsum().values
-        rent_costs = _cdf_local.get('Rent Costs', _cdf_local.get('Total Rent Costs', 0)).cumsum().values
-        T = min(len(buy_costs), r_t.shape[1])
-    else:
-        T = r_t.shape[1]
-        buy_costs = _np.linspace(0, home_value0*0.3, T)
-        rent_costs = _np.linspace(0, home_value0*0.2, T)
-
-    buy_assets = house_paths[:, :T] + broker_buy[:, :T]
-    rent_assets = broker_rent[:, :T]
-
-    buy_net = buy_assets - buy_costs[None, :]
-    rent_net = rent_assets - rent_costs[None, :]
-
+    import numpy as np
+    import pandas as pd
+    import plotly.express as px
     import plotly.graph_objects as go
+
+    try:
+        seed_mc = int(seed_text.strip()) if seed_text.strip() else None
+    except:
+        seed_mc = None
+    rng_mc = np.random.default_rng(seed_mc)
+
+    years = years_list if 'years_list' in globals() else list(range(1, n_years+1))
+    T = len(years)
+
+    buy_gt_rent_counts = np.zeros(T, dtype=int)
+    buy_paths = np.zeros((n_trials, T))
+    rent_paths = np.zeros((n_trials, T))
+
+    progress = st.progress(0.0)
+
+    for t in range(n_trials):
+        bro = sample_t_returns(T, t_mean, t_std, t_df, rng_mc)
+        hom = sample_lognormal_returns(T, ln_mean, ln_std, rng_mc)
+
+        # Re-run the single-path engine fast for each trial
+        try:
+            current_rent = cost_of_rent
+            current_renters_insurance = renters_insurance
+            current_deposit = security_deposit
+            current_utilities = rental_utilities
+            current_pet_fee = pet_fee
+            current_parking = parking_fee
+        except Exception:
+            current_rent = 2000.0
+            current_renters_insurance = 300.0
+            current_deposit = 2000.0
+            current_utilities = 2000.0
+            current_pet_fee = 0.0
+            current_parking = 0.0
+
+        home_value = float(purchase_price) if 'purchase_price' in globals() else 0.0
+        base_home_value = home_value
+        buy_investment = 0.0
+        rent_investment = float(down_payment if 'down_payment' in globals() else 0.0) + float(security_deposit if 'security_deposit' in globals() else 0.0)
+
+        for i, year in enumerate(years):
+            if 'Date' in annual_df.columns and not annual_df.empty and year in annual_df["Date"].dt.year.values:
+                mask = (annual_df["Date"].dt.year == year)
+                p_and_i = annual_df.loc[mask, "P&I"].sum() if "P&I" in annual_df.columns else 0.0
+                pmi = annual_df.loc[mask, "PMI"].sum() if "PMI" in annual_df.columns else 0.0
+                year_balance = annual_df.loc[mask, "Balance"].iloc[-1] if "Balance" in annual_df.columns else 0.0
+            else:
+                p_and_i = 0.0; pmi = 0.0; year_balance = 0.0
+
+            def _infl(base, pct, yrs):
+                try:
+                    return float(base) * ((1 + float(pct)/100.0) ** float(yrs))
+                except Exception:
+                    return 0.0
+            yr_idx = i if 'purchase_year' not in globals() else (year - purchase_year)
+            year_taxes = _infl(taxes if 'taxes' in globals() else 0.0, annual_property_tax_increase if 'annual_property_tax_increase' in globals() else 0.0, yr_idx)
+            year_insurance = _infl(insurance if 'insurance' in globals() else 0.0, annual_insurance_increase if 'annual_insurance_increase' in globals() else 0.0, yr_idx)
+            year_maintenance = _infl(maintenance if 'maintenance' in globals() else 0.0, annual_maintenance_increase if 'annual_maintenance_increase' in globals() else 0.0, yr_idx)
+            year_hoa = _infl(hoa if 'hoa' in globals() else 0.0, annual_hoa_increase if 'annual_hoa_increase' in globals() else 0.0, yr_idx)
+
+            add_purchase_closing = float(closing_costs if 'closing_costs' in globals() else 0.0) if (('purchase_year' in globals()) and (year == purchase_year)) else 0.0
+            add_purchase_points  = float(points_cost if 'points_cost' in globals() else 0.0) if (('purchase_year' in globals()) and (year == purchase_year)) else 0.0
+            add_refi_points = 0.0
+            try:
+                if 'show_refinance' in globals() and show_refinance and 'refi_start_date' in globals() and refi_start_date and refi_start_date.year == year:
+                    add_refi_points = float(refi_points_cost) if 'refi_points_cost' in globals() else float(refi_costs) if 'refi_costs' in globals() else 0.0
+            except Exception:
+                pass
+
+            indirect_costs = pmi + year_taxes + year_insurance + year_maintenance + year_hoa + add_purchase_closing + add_purchase_points + add_refi_points
+            buy_cost = p_and_i + indirect_costs
+
+            year_rent = float(current_rent) * 12.0
+            year_renters_insurance = float(current_renters_insurance)
+            year_deposit = float(current_deposit) if year == years[0] else 0.0
+            year_utilities = float(current_utilities)
+            year_pet_fee = float(current_pet_fee) if (('pet_fee_frequency' in globals() and pet_fee_frequency=='Annual') or (year==years[0])) else 0.0
+            year_application_fee = float(application_fee) if 'application_fee' in globals() and year == years[0] else 0.0
+            year_renewal_fee = float(lease_renewal_fee) if 'lease_renewal_fee' in globals() and year > years[0] else 0.0
+            year_parking = float(current_parking)
+
+            rent_cost = year_rent + year_renters_insurance + year_deposit + year_utilities + year_pet_fee + year_application_fee + year_renewal_fee + year_parking
+
+            home_value *= (1 + hom[i])
+            equity_principal = float(purchase_price if 'purchase_price' in globals() else 0.0) - float(year_balance)
+            appreciation = home_value - base_home_value
+            equity_total = equity_principal + max(0.0, appreciation)
+
+            r_b = bro[i]
+            if buy_cost > rent_cost:
+                rent_investment = rent_investment * (1 + r_b) + (buy_cost - rent_cost)
+                buy_investment = buy_investment * (1 + r_b)
+            else:
+                buy_investment = buy_investment * (1 + r_b) + (rent_cost - buy_cost)
+                rent_investment = rent_investment * (1 + r_b)
+
+            buy_total_assets = equity_total + buy_investment
+            rent_total_assets = rent_investment
+
+            buy_paths[t, i] = buy_total_assets
+            rent_paths[t, i] = rent_total_assets
+
+            infl = (1 + float(annual_rent_increase if 'annual_rent_increase' in globals() else 0.0) / 100.0)
+            current_rent *= infl
+            current_renters_insurance *= infl
+            current_utilities *= infl
+            current_parking *= infl
+            if 'pet_fee_frequency' in globals() and pet_fee_frequency == "Annual":
+                current_pet_fee *= infl
+
+        buy_gt_rent_counts += (buy_paths[t] > rent_paths[t])
+
+        if (t+1) % max(1, n_trials//50) == 0:
+            progress.progress((t+1)/n_trials)
+
+    # Probability that Buy > Rent each year (NEW)
+    buy_prob = buy_gt_rent_counts / n_trials
+    fig_prob = go.Figure()
+    fig_prob.add_trace(go.Scatter(x=years, y=buy_prob, mode="lines", name="P(Buy beats Rent)"))
+    if 'refi_start_date' in globals() and refi_start_date:
+        fig_prob.add_vline(x=refi_start_date.year, line_dash="dash", line_color="orange")
+    if 'purchase_year' in globals():
+        fig_prob.add_vline(x=purchase_year, line_dash="dash", line_color="blue")
+    st.plotly_chart(fig_prob, use_container_width=True)
+    st.caption("We plot **Buy** probability for clarity. **Rent** probability is `1 − Buy`.")
+
+    # VISUAL from earlier version: two-line % wins per year
+    df_wins = pd.DataFrame({
+        "Year": years,
+        "% Buy Wins": (buy_paths > rent_paths).mean(axis=0) * 100.0,
+        "% Rent Wins": (rent_paths > buy_paths).mean(axis=0) * 100.0
+    })
+    fig_wins = px.line(df_wins.melt(id_vars=["Year"], var_name="Scenario", value_name="Percent"), x="Year", y="Percent", color="Scenario", markers=True, title="% of Trials Each Scenario Wins (per year)")
+    st.plotly_chart(fig_wins, use_container_width=True)
+
+    # Box & whisker plots of final-year net worth (from earlier version)
     fig_box = go.Figure()
-    fig_box.add_trace(go.Box(y=buy_net[:, -1], name="Buy — Net Worth (Final Year)"))
-    fig_box.add_trace(go.Box(y=rent_net[:, -1], name="Rent — Net Worth (Final Year)"))
+    fig_box.add_trace(go.Box(y=buy_paths[:, -1], name="Buy — Net Worth (Final Year)"))
+    fig_box.add_trace(go.Box(y=rent_paths[:, -1], name="Rent — Net Worth (Final Year)"))
     st.plotly_chart(fig_box, use_container_width=True)
 
-    import plotly.express as px
-    df_wins = _pd.DataFrame({"Year": _np.arange(1, T+1), "% Buy Wins": (buy_net > rent_net).mean(axis=0)[:T]*100.0, "% Rent Wins": (rent_net > buy_net).mean(axis=0)[:T]*100.0})
-    fig_wins = px.line(df_wins.melt(id_vars=["Year"], var_name="Scenario", value_name="Percent"), x="Year", y="Percent", color="Scenario", markers=True)
-    st.plotly_chart(fig_wins, use_container_width=True)
-except Exception as _mc_err:
-    st.info(f"Monte Carlo section skipped due to: {_mc_err}")
+    # Median & IQR paths (NEW)
+    buy_med = np.median(buy_paths, axis=0)
+    rent_med = np.median(rent_paths, axis=0)
+    buy_p25 = np.percentile(buy_paths, 25, axis=0)
+    buy_p75 = np.percentile(buy_paths, 75, axis=0)
+    rent_p25 = np.percentile(rent_paths, 25, axis=0)
+    rent_p75 = np.percentile(rent_paths, 75, axis=0)
+
+    fig_median = go.Figure()
+    fig_median.add_trace(go.Scatter(x=years, y=buy_med, mode="lines", name="Buy (median)"))
+    fig_median.add_trace(go.Scatter(x=years, y=rent_med, mode="lines", name="Rent (median)"))
+    # IQR bands (shaded)
+    x_band = np.concatenate([years, years[::-1]])
+    y_buy_band = np.concatenate([buy_p75, buy_p25[::-1]])
+    y_rent_band = np.concatenate([rent_p75, rent_p25[::-1]])
+    fig_median.add_trace(go.Scatter(x=x_band, y=y_buy_band, fill='toself', name="Buy IQR", line=dict(width=0)))
+    fig_median.add_trace(go.Scatter(x=x_band, y=y_rent_band, fill='toself', name="Rent IQR", line=dict(width=0)))
+    st.plotly_chart(fig_median, use_container_width=True)
+
+    # Summary table (median / P25 / P75)
+    with st.expander("Summary table (median / P25 / P75)", expanded=False):
+        df_sum = pd.DataFrame({
+            "Year": years,
+            "Buy (median)": buy_med,
+            "Buy P25": buy_p25,
+            "Buy P75": buy_p75,
+            "Rent (median)": rent_med,
+            "Rent P25": rent_p25,
+            "Rent P75": rent_p75
+        })
+        st.dataframe(df_sum.style.format({"Buy (median)":"${:,.0f}","Buy P25":"${:,.0f}","Buy P75":"${:,.0f}",
+                                          "Rent (median)":"${:,.0f}","Rent P25":"${:,.0f}","Rent P75":"${:,.0f}"}), hide_index=True)
+
+# Ensure amortization schedule DataFrame is available globally (safety)
+try:
+    annual_df
+except NameError:
+    if 'main_annual_df' in locals():
+        annual_df = main_annual_df.copy()
+    elif 'cost_comparison_df' in locals():
+        annual_df = cost_comparison_df.copy()
+    else:
+        annual_df = pd.DataFrame()
