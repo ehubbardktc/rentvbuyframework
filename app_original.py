@@ -27,6 +27,35 @@ def _apply_chart_defaults(fig, title=None, x_title=None, y_title=None, show_lege
     return fig
 
 import uuid
+# Global default values (no presets)
+BASE_DEFAULTS = {
+    "purchase_price": 500_000,
+    "down_payment": 100_000,
+    "closing_costs": 5000,
+    "loan_years": 30,
+    "mortgage_rate": 5.0,
+    "pmi_rate": 0.20,
+    "pmi_equity_threshold": 20,
+    "property_taxes": 8000,
+    "home_insurance": 1100,
+    "maintenance": 6000,
+    "hoa_fees": 1200,
+    "cost_of_rent": 3000,
+    "renters_insurance": 300,
+    "security_deposit": 3000,
+    "rental_utilities": 2400,
+    "pet_fee": 500,
+    "application_fee": 50,
+    "lease_renewal_fee": 100,
+    "parking_fee": 50,
+    "vti_annual_return": 7.0,
+    "annual_appreciation": 3.0,
+    "annual_maintenance_increase": 3.0,
+    "annual_insurance_increase": 3.0,
+    "annual_hoa_increase": 3.0,
+    "annual_rent_increase": 3.0,
+}
+
 
 # Custom CSS for styling
 st.markdown("""
@@ -119,28 +148,43 @@ st.title("Rent vs. Buy Decision Support Framework")
 # Instructions
 with st.expander("Welcome & Instructions", expanded=True):
     st.markdown("""
-    This tool helps you compare **renting vs. buying** a home by analyzing costs, asset growth, and key financial metrics.
+    ### BLUF — Bottom Line Up Front
+    This Rent vs Buy Decision Support Framework helps you compare long-term financial outcomes
+    from buying a home versus continuing to rent. It produces deterministic metrics (Sections 1–3)
+    and probabilistic analysis that accounts for uncertainty (Sections 4–5).
+    The core calculation framework is consistent across both views — the difference is whether selected variables
+    are modeled as fixed values (deterministic) or as distributions (probabilistic).
 
-    **Key Outputs:**
-    - **Mortgage Metrics**: Payment details, interest, PMI, and payoff timelines.
-    - **Amortization Schedule**: Detailed breakdown of payments, with refinance and extra payment impacts.
-    - **Asset Metrics**: Home equity, investments, and net asset value for both scenarios.
-    - **Cost Metrics**: Comprehensive cost comparisons, including one-time and repeating costs.
-    - **Visualizations**: Interactive charts (line, treemap, bar) to explore trade-offs (hover for details).
+    ### What this tool enables you to do (short)
+    - Compare one-time and ongoing costs for buying vs renting and see year-by-year breakdowns.
+    - Explore mortgage amortization, extra payments, and refinance impacts on interest and payoff timelines.
+    - Project asset and net asset evolution under different assumptions.
+    - Run Monte Carlo simulations (Section 5) to quantify the impact of uncertain variables on outcomes.
 
-    **How to Use:**
-    1. Input purchase, loan, rental, and investment parameters below.
-    2. Select an evaluation year to view detailed metrics and breakdowns.
-    3. Explore visualizations and tables for insights.
-    4. Expand sections for detailed data.
+    ### Section breakdown
+    - **Section 1 — Inputs (Deterministic):** Enter purchase, loan, refinance, homeownership and rental parameters. These feed the deterministic calculations.
+    - **Section 2 — Mortgage Metrics (Deterministic):** Payment schedule, PMI, total interest, payoff dates and refinance comparisons.
+    - **Section 3 — Cost & Asset Results (Deterministic):** Year-by-year cost breakdowns, net asset calculation and core visualizations.
+    - **Section 4 — Distributions (Probabilistic):** Inspect distributions for selected uncertain variables and quick histograms/percentiles.
+    - **Section 5 — Monte Carlo Simulation (Probabilistic):** Run many trials (default 500) to see ranges, confidence intervals and breakeven likelihoods.
 
-    **Methodology:**
-    - Payments: Monthly (12/year) or Biweekly (26/year).
-    - Costs: Buying includes P&I, PMI, taxes, insurance, maintenance, HOA, closing/points. Renting includes rent, insurance, deposits, utilities, fees.
-    - Assets: Buying includes home equity and investments; renting includes investments from cost savings and down payment.
-    - Investments: Cost differences invested in Personal Brokerage Account (default 7% return).
-    - Security Deposit: Treated as an opportunity cost (invested) in renting, returned at lease end.
+    ### Variables that commonly include uncertainty (examples)
+    - Housing appreciation (`annual_appreciation`)
+    - Rent growth (`annual_rent_increase`)
+    - Investment returns (`vti_annual_return`)
+    - Maintenance, insurance and HOA inflation (`annual_maintenance_increase`, `annual_insurance_increase`, `annual_hoa_increase`)
+    - Future mortgage/refinance rates for variable-rate or future refis (`mortgage_rate`, `refi_rate`)
+
+    **Important:** Sections 1–3 use the same calculation framework as Sections 4–5. The probabilistic sections draw scenarios by varying the variables above while keeping formulas identical.
+
+    ### Quick tips
+    - Use the **Run Monte Carlo with updated parameters** button in Section 5 to re-run simulations after changing inputs (prevents constant auto-runs).
+    - The **Evaluation Period** controls the horizon for all charts and projections — it affects payoff timelines, cumulative costs and net asset charts.
+    - Colors and layout follow a consistent style (no red/green semantics). Look for the standardized color palette across charts.
     """)
+
+
+
 
 # Inputs
 st.header("1. Inputs")
@@ -156,40 +200,14 @@ with col_reset:
         st.session_state.clear()
 
 # Apply presets
-if preset == "High-Cost Urban":
-    default_values = {
-        "purchase_price": 800_000, "down_payment": 160_000, "closing_costs": 10_000, "loan_years": 30, "mortgage_rate": 4.5,
-        "pmi_rate": 0.25, "pmi_equity_threshold": 20, "property_taxes": 12_000, "home_insurance": 1500, "maintenance": 8000,
-        "hoa_fees": 2400, "cost_of_rent": 4000, "renters_insurance": 400, "security_deposit": 4000, "rental_utilities": 3000,
-        "pet_fee": 600, "application_fee": 75, "lease_renewal_fee": 150, "parking_fee": 100, "vti_annual_return": 7.0,
-        "annual_appreciation": 3.5, "annual_maintenance_increase": 3.5, "annual_insurance_increase": 3.5, "annual_hoa_increase": 3.5,
-        "annual_rent_increase": 4.0
-    }
-elif preset == "Low-Cost Suburban":
-    default_values = {
-        "purchase_price": 300_000, "down_payment": 60_000, "closing_costs": 3000, "loan_years": 15, "mortgage_rate": 5.5,
-        "pmi_rate": 0.15, "pmi_equity_threshold": 20, "property_taxes": 5000, "home_insurance": 800, "maintenance": 4000,
-        "hoa_fees": 600, "cost_of_rent": 1800, "renters_insurance": 200, "security_deposit": 1800, "rental_utilities": 1800,
-        "pet_fee": 300, "application_fee": 40, "lease_renewal_fee": 50, "parking_fee": 25, "vti_annual_return": 6.5,
-        "annual_appreciation": 2.5, "annual_maintenance_increase": 2.5, "annual_insurance_increase": 2.5, "annual_hoa_increase": 2.5,
-        "annual_rent_increase": 2.0
-    }
-else:
-    default_values = {
-        "purchase_price": 500_000, "down_payment": 100_000, "closing_costs": 5000, "loan_years": 30, "mortgage_rate": 5.0,
-        "pmi_rate": 0.20, "pmi_equity_threshold": 20, "property_taxes": 8000, "home_insurance": 1100, "maintenance": 6000,
-        "hoa_fees": 1200, "cost_of_rent": 3000, "renters_insurance": 300, "security_deposit": 3000, "rental_utilities": 2400,
-        "pet_fee": 500, "application_fee": 50, "lease_renewal_fee": 100, "parking_fee": 50, "vti_annual_return": 7.0,
-        "annual_appreciation": 3.0, "annual_maintenance_increase": 3.0, "annual_insurance_increase": 3.0, "annual_hoa_increase": 3.0,
-        "annual_rent_increase": 3.0
-    }
+
 
 
 # Ensure property tax growth default
 if 'annual_property_tax_increase' not in st.session_state:
     st.session_state['annual_property_tax_increase'] = 3.0
 # Initialize session state for inputs
-for key, value in default_values.items():
+for key, value in BASE_DEFAULTS.items():
     if key not in st.session_state:
         st.session_state[key] = value
 
@@ -1082,17 +1100,12 @@ with tab2:
     )
 
 st.header("Amortization Breakdown")
-st.header("Amortization Breakdown")
 main_schedule_df['Year'] = main_schedule_df['Date'].dt.year
 main_annual = main_annual_df.copy()
 main_annual['Year'] = main_annual['Date'].dt.year
 main_annual['Cum Principal'] = main_annual['Principal'].cumsum()
 main_annual['Cum Interest'] = main_annual['Interest'].cumsum()
 main_annual['Cum PMI'] = main_annual['PMI'].cumsum() if 'PMI' in main_annual.columns else 0.0
-
-tab1, tab2, tab3 = st.tabs(["By Payment", "By Year", "Cumulative Payoff"])
-with tab1:
-    fig_amort_payment = go.Figure()
 
 tab1, tab2, tab3 = st.tabs(["By Payment", "By Year", "Cumulative Payoff"])
 with tab1:
@@ -1557,7 +1570,7 @@ with st.container(border=True):
         )
         st.plotly_chart(fig_rent_cost_types, use_container_width=True)
 
-    with st.expander("Detailed Costs Breakdown by Year", expanded=False):
+    with st.expander("Detailed Costs Breakdown by Year (Rent & Buy)", expanded=False):
         cost_breakout = cost_comparison_df[['Year', 'Direct Costs (P&I)', 'PMI', 'Property Taxes', 'Home Insurance', 'Maintenance', 'Emergency', 'HOA Fees', 'Closing Costs', 'Points Costs', 'Total Buying Cost', 'Rent', 'Renters Insurance', 'Security Deposit', 'Utilities', 'Pet Fees', 'Application Fee', 'Lease Renewal Fee', 'Parking Fee', 'Total Renting Cost', 'Cost Difference (Buy - Rent)']]
         cost_breakout['Year'] = cost_breakout['Year'].astype(str)
         st.dataframe(cost_breakout.style.format({col: "${:,.2f}" for col in cost_breakout.columns if col != 'Year'}), hide_index=True)
@@ -1593,41 +1606,6 @@ with st.container(border=True):
     if payoff_year and eval_start_year <= payoff_year <= eval_end_year:
         fig_net_assets.add_vline(x=payoff_year, line_dash="dash", line_color="purple", annotation_text="Payoff")
     st.plotly_chart(fig_net_assets, use_container_width=True)
-
-
-
-
-
-
-# =====================================================
-# =====================================================
-
-st.caption("Monthly payments reflect refinancing and points buy-down. "
-           "Biweekly schedule is shown only if selected.")
-
-colL, colR = st.columns(2)
-
-with colL:
-    st.markdown("**Monthly Payments**")
-    try:
-        monthly_payment_display = f"${monthly_payment:,.2f}"
-    except Exception:
-        monthly_payment_display = "N/A"
-    st.metric(label="Monthly Payment (incl. P&I, PMI if applicable)", value=monthly_payment_display)
-
-    try:
-        st.metric(label="Effective Interest Rate (after points/refi)", value=f"{effective_rate:.2%}")
-    except Exception:
-        pass
-
-with colR:
-    if 'biweekly' in globals() and biweekly:
-        st.markdown("**Biweekly Payments**")
-        try:
-            biweekly_payment_display = f"${biweekly_payment:,.2f}"
-        except Exception:
-            biweekly_payment_display = "N/A"
-        st.metric(label="Biweekly Payment (if selected)", value=biweekly_payment_display)
 
 
 # =====================================================
