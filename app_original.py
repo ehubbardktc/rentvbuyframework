@@ -8,23 +8,13 @@ import plotly.figure_factory as ff
 import plotly.express as px
 
 import plotly.io as pio
+
 # Consistent, clean default theme for all charts
 pio.templates.default = "plotly_white"
 try:
     px.defaults.color_discrete_sequence = px.colors.qualitative.Set2
 except Exception:
     pass
-
-# Helper to enforce consistent layout on all figures (can be used ad-hoc if needed)
-def _apply_chart_defaults(fig, title=None, x_title=None, y_title=None, show_legend=True):
-    fig.update_layout(
-        title=title or fig.layout.title.text,
-        xaxis_title=x_title or fig.layout.xaxis.title.text,
-        yaxis_title=y_title or fig.layout.yaxis.title.text,
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
-        margin=dict(l=30, r=20, t=50, b=30),
-    )
-    return fig
 
 import uuid
 # Global default values (no presets)
@@ -55,7 +45,6 @@ BASE_DEFAULTS = {
     "annual_hoa_increase": 3.0,
     "annual_rent_increase": 3.0,
 }
-
 
 # Custom CSS for styling
 st.markdown("""
@@ -88,7 +77,6 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
-
 
 st.markdown("""
 <style>
@@ -126,20 +114,16 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-
-
 def section_header(title: str, subtitle: str | None = None):
     st.markdown(f"<div style='display:flex;align-items:baseline;gap:.5rem'><h2 style='margin:0'>{title}</h2>" +
                 (f"<span style='color:#64748b'>{subtitle}</span>" if subtitle else "") +
                 "</div>", unsafe_allow_html=True)
-
 
 def thick_divider():
     st.markdown(
         """<hr style="height:4px;border:none;color:#333;background-color:#333;" />""",
         unsafe_allow_html=True
     )
-
 
 # Page Config
 st.set_page_config(page_title="Rent vs. Buy Decision Support Framework", layout="wide")
@@ -183,9 +167,6 @@ with st.expander("Welcome & Instructions", expanded=True):
     - Colors and layout follow a consistent style (no red/green semantics). Look for the standardized color palette across charts.
     """)
 
-
-
-
 # Inputs
 st.header("1. Inputs")
 st.markdown("Configure the parameters below to compare renting vs. buying. All fields are required unless marked optional. Use the preset options or reset to defaults for quick setup.")
@@ -198,10 +179,6 @@ with col_preset:
 with col_reset:
     if st.button("Apply", help="Revert all inputs to their default values."):
         st.session_state.clear()
-
-# Apply presets
-
-
 
 # Ensure property tax growth default
 if 'annual_property_tax_increase' not in st.session_state:
@@ -1229,9 +1206,6 @@ if buy_points and points > 0:
     fig_pts.add_hline(y=0, line_dash="dash", line_color="black")
     st.plotly_chart(fig_pts, use_container_width=True)
 
-
-
-
 if payment_frequency == "Biweekly":
     st.header("Savings from Biweekly Payments")
     monthly_comp_annual = monthly_comparison_annual_df.copy()
@@ -1613,14 +1587,13 @@ with st.container(border=True):
 #    NOTE: Sections 1–3 are deterministic (fixed assumptions) to set a baseline.
 #          Sections 4–5 introduce statistical modeling to capture uncertainty.
 # =====================================================
-try:
-    section_header("4) Investment Simulation — Stochastic", "Deterministic baseline above; uncertainty introduced here")
-except Exception:
-    st.header("4) Investment Simulation — Stochastic")
+
+section_header("4) Investment Simulation — Stochastic", "Deterministic baseline above; uncertainty introduced here")
 
 # -----------------------------------------------------
 # Explanatory container and parameter inputs
 # -----------------------------------------------------
+
 with st.container(border=True):
     st.markdown("**Sections 1–3 are deterministic.** They use fixed returns for clarity and baseline understanding. "
                 "**Sections 4–5** introduce uncertainty using statistical distributions.")
@@ -1654,12 +1627,6 @@ with st.container(border=True):
         except Exception:
             years_list = list(range(1, int(n_years_sim)+1))
     n_years = len(years_list)
-
-    import numpy as np
-    import pandas as pd
-    import plotly.express as px
-    import plotly.graph_objects as go
-    from datetime import datetime
 
     # Helpers to align with requested parameterization
     def sample_t_returns(n, mean_pct, std_pct, df, rng):
@@ -1746,6 +1713,7 @@ with st.container(border=True):
     comp_broker = []
 
     # ---------- Single-path engine (stochastic) ----------
+
     for i, year in enumerate(years_list):
         # Mortgage-linked items for this calendar year
         if 'Date' in annual_df.columns and not annual_df.empty and year in annual_df["Date"].dt.year.values:
@@ -1834,7 +1802,7 @@ with st.container(border=True):
         if 'pet_fee_frequency' in globals() and pet_fee_frequency == "Annual":
             current_pet_fee *= infl
 
-    # ---------------- Visuals: Single-path (NEW) ----------------
+    # ---------------- Visuals: Single-path ----------------
     x = years_list
     fig_one = go.Figure()
     fig_one.add_trace(go.Scatter(x=x, y=buy_nw_path, mode="lines", name="Buy — Net Worth (stochastic)"))
@@ -1849,7 +1817,7 @@ with st.container(border=True):
                "In Sections 4–5, **points and refinance costs are counted as homeowner costs** regardless of whether they were financed or paid upfront (opportunity cost). "
                "Vertical dashed lines mark **purchase** (blue) and **refinance** (orange) years.")
 
-# ---------------- Visuals: Distributions (NEW) ----------------
+# ---------------- Visuals: Distributions ----------------
 with st.expander("See the distributions (based on your parameters)", expanded=False):
     rng_vis = np.random.default_rng(seed_val if 'seed_val' in globals() and seed_val is not None else None)
     vis_bro = sample_t_returns(10000, t_mean, t_std, t_df, rng_vis)
@@ -1860,70 +1828,19 @@ with st.expander("See the distributions (based on your parameters)", expanded=Fa
     st.plotly_chart(fig_d2, use_container_width=True)
     st.caption("t-distribution is scaled to your mean & stdev; housing uses a lognormal on gross (1+r) with parameters fitted from your mean & stdev.")
 
-# ---------------- Visuals: Median-path (from earlier version) ----------------
-with st.expander("Additional visuals (median paths & stacked assets, from earlier version)", expanded=True):
-    # Use advanced parameters to keep prior charts
-    rng_med = np.random.default_rng(12345)
-    Tm = int(n_years_sim) if 'n_years_sim' in globals() else max(1, len(years_list))
-    Nm = int(n_trials_med) if 'n_trials_med' in globals() else 2500
-    r_t = t_loc + t_scale * rng_med.standard_t(df=t_df, size=(Nm, Tm))
-    z = rng_med.standard_normal(size=(Nm, Tm))
-    g_logn = np.exp(ln_mu + ln_sigma * z) - 1.0
-
-    home_value0 = float(purchase_price) if 'purchase_price' in globals() else 0.0
-    brokerage0_buy = 0.0
-    brokerage0_rent = float(down_payment if 'down_payment' in globals() else 0.0)
-
-    brokerage_paths = np.cumprod(1 + r_t, axis=1) * brokerage0_rent
-    brokerage_paths_buy = np.cumprod(1 + r_t, axis=1) * brokerage0_buy
-    house_paths = np.cumprod(1 + g_logn, axis=1) * home_value0
-
-    # Equity from payments (interpolated to Tm)
-    if 'annual_df' in globals() and 'Principal Paid' in annual_df.columns:
-        eq_from_payments = annual_df['Principal Paid'].cumsum().values
-        eq_from_payments = np.interp(np.arange(Tm), np.arange(len(eq_from_payments)), eq_from_payments, left=0, right=(eq_from_payments[-1] if len(eq_from_payments) else 0))
-    else:
-        eq_from_payments = np.linspace(0, home_value0*0.3, Tm)
-
-    med_house = np.median(house_paths, axis=0)
-    med_broker_buy = np.median(brokerage_paths_buy, axis=0)
-    med_broker_rent = np.median(brokerage_paths, axis=0)
-
-    colB, colR = st.columns(2)
-    with colB:
-        st.subheader("Buy — Stacked Assets (Median)")
-        df_buy_stack = pd.DataFrame({
-            "Year": np.arange(1, Tm+1),
-            "Equity (Payments)": eq_from_payments[:Tm],
-            "Appreciation (Simulated)": np.maximum(med_house - home_value0, 0.0)[:Tm],
-            "Brokerage (Simulated)": med_broker_buy[:Tm]
-        })
-        dfm = df_buy_stack.melt(id_vars=['Year'], var_name='Component', value_name='Value')
-        fig_stack = px.bar(dfm, x='Year', y='Value', color='Component', barmode='stack')
-        st.plotly_chart(fig_stack, use_container_width=True)
-    with colR:
-        st.subheader("Rent — Brokerage (Median)")
-        df_rent_line = pd.DataFrame({"Year": np.arange(1, Tm+1), "Brokerage (Simulated)": med_broker_rent[:Tm]})
-        fig_rent = px.line(df_rent_line, x='Year', y='Brokerage (Simulated)', markers=True)
-        st.plotly_chart(fig_rent, use_container_width=True)
-
-try:
-    thick_divider()
-except Exception:
-    pass
+thick_divider()
 
 # =====================================================
 # 5) Monte Carlo — Probabilistic Outcomes
 # =====================================================
-try:
-    section_header("5) Monte Carlo — Probabilistic Outcomes", "")
-except Exception:
-    st.header("5) Monte Carlo — Probabilistic Outcomes")
+
+section_header("5) Monte Carlo — Probabilistic Outcomes", "")
+st.header("5) Monte Carlo — Probabilistic Outcomes")
 
 with st.container(border=True):
     col1, col2, col3 = st.columns([1,1,1])
     with col1:
-        n_trials = st.number_input("Number of trials", value=5000, min_value=100, max_value=20000, step=100,
+        n_trials = st.number_input("Number of trials", value=500, min_value=100, max_value=20000, step=100,
                                    help="More trials improves stability but takes longer.")
     with col2:
         seed_text = st.text_input("Optional seed (Monte Carlo)", value="", help="Set a number for reproducible runs.")
@@ -1931,12 +1848,6 @@ with st.container(border=True):
         st.info("Primary chart shows **Buy probability** each year. Rent probability = 1 − Buy.")
     if n_trials > 10000:
         st.warning("High trial count may be slow. Consider using a seed for reproducibility.")
-
-    import numpy as np
-    import pandas as pd
-    import plotly.express as px
-    import plotly.graph_objects as go
-
     try:
         seed_mc = int(seed_text.strip()) if seed_text.strip() else None
     except:
@@ -2110,14 +2021,3 @@ with st.container(border=True):
         })
         st.dataframe(df_sum.style.format({"Buy (median)":"${:,.0f}","Buy P25":"${:,.0f}","Buy P75":"${:,.0f}",
                                           "Rent (median)":"${:,.0f}","Rent P25":"${:,.0f}","Rent P75":"${:,.0f}"}), hide_index=True)
-
-# Ensure amortization schedule DataFrame is available globally (safety)
-try:
-    annual_df
-except NameError:
-    if 'main_annual_df' in locals():
-        annual_df = main_annual_df.copy()
-    elif 'cost_comparison_df' in locals():
-        annual_df = cost_comparison_df.copy()
-    else:
-        annual_df = pd.DataFrame()
