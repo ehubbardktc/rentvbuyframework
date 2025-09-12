@@ -67,6 +67,36 @@ BASE_DEFAULTS = {
     "annual_rent_increase": 3.0,
 }
 
+# --- Load shareable scenario from URL query params (optional) ---
+_qp = st.experimental_get_query_params()
+def _qp_float(k, default=None):
+    try:
+        return float(_qp.get(k, [default])[0]) if _qp.get(k) else default
+    except Exception:
+        return default
+def _qp_int(k, default=None):
+    try:
+        return int(float(_qp.get(k, [default])[0])) if _qp.get(k) else default
+    except Exception:
+        return default
+
+# Supported keys: pp (price), dp (down), rate, term, rent, appr, invest, start, end
+_qp_overrides = {
+    "purchase_price": _qp_float("pp"),
+    "down_payment": _qp_float("dp"),
+    "mortgage_rate": _qp_float("rate"),
+    "loan_years": _qp_int("term"),
+    "cost_of_rent": _qp_float("rent"),
+    "annual_appreciation": _qp_float("appr"),
+    "vti_annual_return": _qp_float("invest"),
+}
+_eval_start_qp = _qp_int("start")
+_eval_end_qp = _qp_int("end")
+
+for _k, _v in _qp_overrides.items():
+    if _v is not None:
+        st.session_state[_k] = _v
+
 # Custom CSS for styling
 st.markdown("""
 <style>
@@ -206,13 +236,13 @@ with st.container(border=True):
     col1, col2 = st.columns(2)
     with col1:
         purchase_year = st.number_input("Purchase Year", value=2025, step=1, min_value=2000, max_value=2100, help="Year you plan to purchase the home.")
-        purchase_price = st.number_input("Purchase Price ($)", value=st.session_state["purchase_price"], step=10_000, min_value=0, help="Total cost of the home.")
-        down_payment = st.number_input("Down Payment ($)", value=st.session_state["down_payment"], step=1_000, min_value=0, max_value=purchase_price, help="Initial payment toward purchase price.")
+        purchase_price = st.number_input("Purchase Price ($)", value=float(st.session_state["purchase_price"]), step=10_000.0, min_value=0.0, help="Total cost of the home.")
+        down_payment = st.number_input("Down Payment ($)", value=float(st.session_state["down_payment"]), step=1_000.0, min_value=0.0, max_value=purchase_price, help="Initial payment toward purchase price.")
         if down_payment > purchase_price:
             st.warning("Down payment cannot exceed purchase price.")
         percent_down = (down_payment / purchase_price * 100) if purchase_price > 0 else 0
         st.metric("Down Payment Percentage", f"{percent_down:.2f}%")
-        closing_costs = st.number_input("Closing Costs ($)", value=st.session_state["closing_costs"], step=500, min_value=0, help="One-time costs at purchase (e.g., fees, title).")
+        closing_costs = st.number_input("Closing Costs ($)", value=float(st.session_state["closing_costs"]), step=500.0, min_value=0.0, help="One-time costs at purchase (e.g., fees, title).")
         closing_costs_method = st.selectbox("Closing Costs Method", ["Add to Loan Balance", "Pay Upfront"], index=0, help="Finance closing costs or pay upfront.")
         loan_amount = purchase_price - down_payment + (closing_costs if closing_costs_method == "Add to Loan Balance" else 0)
 
@@ -328,7 +358,7 @@ with st.expander("Refinance", expanded=False):
             refi_term_years = st.number_input("Refinance Term (Years)", value=20, step=1, min_value=1, max_value=50, help="Duration of refinanced loan.")
             refi_start_date = st.date_input("Refinance Start Date", min_value=datetime(purchase_year, 1, 1), max_value=datetime(purchase_year + loan_years, 12, 31), help="Date refinance begins.")
         with col2:
-            refi_costs = st.number_input("Refinance Closing Costs ($)", value=3000, step=500, min_value=0, help="One-time costs for refinancing.")
+            refi_costs = st.number_input("Refinance Closing Costs ($)", value=3000.0, step=500.0, min_value=0.0, help="One-time costs for refinancing.")
             roll_costs = st.selectbox("Refinance Cost Method", ["Add to Loan Balance", "Pay Upfront"], index=0, help="Finance or pay refinance costs upfront.")
             refi_payment_frequency = st.selectbox("Refinance Payment Frequency", ["Monthly", "Biweekly"], index=0, help="Payment frequency for refinanced loan.")
             refi_mortgage_type = st.selectbox("Refinance Mortgage Type", ["Fixed", "Variable"], index=0, help="Fixed or variable rate for refinanced loan.")
@@ -354,7 +384,7 @@ with st.expander("Refinance", expanded=False):
             refi_rate_schedule = st.data_editor(
                 default_refi_schedule,
                 column_config={
-                    "Year": st.column_config.NumberColumn("Year", min_value=1, max_value=refi_term_years, step=1, help="Year the refinance rate applies."),
+                    "Year": st.column_config.NumberColumn("Year", min_value=1.0, max_value=refi_term_years, step=1.0, help="Year the refinance rate applies."),
                     "Rate (%)": st.column_config.NumberColumn("Rate (%)", min_value=0.0, step=0.1, help="Refinance rate for the specified year.")
                 },
                 hide_index=True,
@@ -430,18 +460,18 @@ with st.container(border=True):
     col1, col2 = st.columns(2)
     with col1:
         st.markdown("#### Recurring (Monthly/Annual)")
-        cost_of_rent = st.number_input(f"Initial Monthly Rent ({purchase_year}) ($)", value=st.session_state["cost_of_rent"], step=50, min_value=0, help="Monthly rent excluding utilities and fees.")
+        cost_of_rent = st.number_input(f"Initial Monthly Rent ({purchase_year}) ($)", value=float(st.session_state["cost_of_rent"]), step=50.0, min_value=0.0, help="Monthly rent excluding utilities and fees.")
         annual_rent_increase = st.number_input("Annual Rent Increase (%)", value=st.session_state["annual_rent_increase"], step=0.1, min_value=0.0, help="Expected annual increase in rent.")
-        renters_insurance = st.number_input("Annual Renters' Insurance ($)", value=st.session_state["renters_insurance"], step=50, min_value=0, help="Yearly cost of renters' insurance.")
-        security_deposit = st.number_input("Security Deposit ($)", value=st.session_state["security_deposit"], step=100, min_value=0, help="One-time deposit, invested as opportunity cost.")
+        renters_insurance = st.number_input("Annual Renters' Insurance ($)", value=float(st.session_state["renters_insurance"]), step=50.0, min_value=0.0, help="Yearly cost of renters' insurance.")
+        security_deposit = st.number_input("Security Deposit ($)", value=float(st.session_state["security_deposit"]), step=100.0, min_value=0.0, help="One-time deposit, invested as opportunity cost.")
     with col2:
         st.markdown("#### One-time / Per-lease")
-        rental_utilities = st.number_input("Annual Rental Utilities ($)", value=st.session_state["rental_utilities"], step=100, min_value=0, help="Yearly utility costs for renting.")
-        pet_fee = st.number_input("Pet Fee/Deposit ($)", value=st.session_state["pet_fee"], step=50, min_value=0, help="One-time or annual pet fee, depending on frequency.")
+        rental_utilities = st.number_input("Annual Rental Utilities ($)", value=float(st.session_state["rental_utilities"]), step=100.0, min_value=0.0, help="Yearly utility costs for renting.")
+        pet_fee = st.number_input("Pet Fee/Deposit ($)", value=float(st.session_state["pet_fee"]), step=50.0, min_value=0.0, help="One-time or annual pet fee, depending on frequency.")
         pet_fee_frequency = st.selectbox("Pet Fee Frequency", ["One-time", "Annual"], index=0, help="Whether pet fee is one-time or annual.")
-        application_fee = st.number_input("Application Fee ($)", value=st.session_state["application_fee"], step=10, min_value=0, help="One-time fee per lease application.")
-        lease_renewal_fee = st.number_input("Annual Lease Renewal Fee ($)", value=st.session_state["lease_renewal_fee"], step=50, min_value=0, help="Annual fee for renewing lease.")
-        parking_fee = st.number_input("Monthly Parking Fee ($)", value=st.session_state["parking_fee"], step=10, min_value=0, help="Monthly parking cost.")
+        application_fee = st.number_input("Application Fee ($)", value=float(st.session_state["application_fee"]), step=10.0, min_value=0.0, help="One-time fee per lease application.")
+        lease_renewal_fee = st.number_input("Annual Lease Renewal Fee ($)", value=float(st.session_state["lease_renewal_fee"]), step=50.0, min_value=0.0, help="Annual fee for renewing lease.")
+        parking_fee = st.number_input("Monthly Parking Fee ($)", value=float(st.session_state["parking_fee"]), step=10.0, min_value=0.0, help="Monthly parking cost.")
 
 # Investment and Evaluation Period
 st.subheader("Investment and Analysis Period")
@@ -457,6 +487,27 @@ with st.container(border=True):
         eval_end_year = st.number_input("Evaluation End Year", value=2070, step=1, min_value=eval_start_year, max_value=2100, help="End year for analysis.")
         if eval_end_year < eval_start_year:
             st.warning("End year must be greater than or equal to start year.")
+
+
+# --- Share scenario (build URL query string for current key inputs) ---
+with st.container(border=True):
+    st.markdown("#### Share this Scenario")
+    _q = {
+        "pp": purchase_price,
+        "dp": down_payment,
+        "rate": mortgage_rate,
+        "term": loan_years,
+        "rent": cost_of_rent,
+        "appr": annual_appreciation,
+        "invest": vti_annual_return,
+        "start": eval_start_year,
+        "end": eval_end_year,
+    }
+    _qs = "&".join([f"{k}={v}" for k,v in _q.items()])
+    st.code(f"?{_qs}", language="text")
+    if st.button("Copy params to URL (set query params)"):
+        st.experimental_set_query_params(**{k:[str(v)] for k,v in _q.items()})
+        st.success("Query params set. Use your browser URL bar to copy the link.")
 
 # Functions
 @st.cache_data
@@ -1033,6 +1084,18 @@ with st.container(border=True):
         else:
             st.caption("Refinance disabled or not configured.")
 
+
+# --- Deterministic KPI strip ---
+with st.container(border=True):
+    k1, k2, k3, k4 = st.columns(4)
+    k1.metric("Monthly Payment", f"${monthly_payment:,.2f}")
+    k2.metric("Total Interest (All-in)", f"${total_interest:,.0f}")
+    k3.metric("Payoff Date", f"{payoff_year}-{payoff_month:02d}")
+    if show_refinance and breakeven_years:
+        k4.metric("Refi Breakeven", f"{breakeven_years:.1f} yrs")
+    else:
+        k4.metric("Refi Breakeven", "—")
+
 st.header("Amortization Schedule")
 st.markdown("**Note**: 'Loan Type' indicates 'Original' (white) or 'Refinance' (blue). 'Effective Rate (%)' shows the applied interest rate.")
 tab1, tab2 = st.tabs(["Annual", "Monthly"])
@@ -1402,6 +1465,7 @@ with st.container(border=True):
             fig_asset_pct_diff.add_vline(x=purchase_year, line_dash="dash", line_color="blue", annotation_text="Purchase")
         if payoff_year and eval_start_year <= payoff_year <= eval_end_year:
             fig_asset_pct_diff.add_vline(x=payoff_year, line_dash="dash", line_color="purple", annotation_text="Payoff")
+        fig_asset_pct_diff.add_hline(y=0, line_dash='dot', opacity=0.5)
         st.plotly_chart(fig_asset_pct_diff, use_container_width=True)
         st.markdown("**Note**: Zero values indicate no renting assets for that year, preventing division by zero.")
 
@@ -1508,6 +1572,7 @@ with st.container(border=True):
             fig_cost_pct_diff.add_vline(x=purchase_year, line_dash="dash", line_color="blue", annotation_text="Purchase")
         if payoff_year and eval_start_year <= payoff_year <= eval_end_year:
             fig_cost_pct_diff.add_vline(x=payoff_year, line_dash="dash", line_color="purple", annotation_text="Payoff")
+        fig_cost_pct_diff.add_hline(y=0, line_dash='dot', opacity=0.5)
         st.plotly_chart(fig_cost_pct_diff, use_container_width=True)
         st.markdown("**Note**: Zero values indicate no renting costs for that year, preventing division by zero.")
 
@@ -1572,6 +1637,30 @@ with st.expander("Detailed Costs Breakdown by Year (Rent & Buy)", expanded=False
             .set_properties(subset=rent_cols, **{'background-color': '#f5f5f5'}),
         hide_index=True
     )
+
+
+# --- Export: Download all CSVs as a single ZIP ---
+with st.expander("Download All Data (ZIP)", expanded=False):
+    import io, zipfile
+    zbuf = io.BytesIO()
+    with zipfile.ZipFile(zbuf, "w", zipfile.ZIP_DEFLATED) as zf:
+        try:
+            zf.writestr("amortization_annual.csv", annual_with_extra_df.to_csv(index=False))
+            zf.writestr("amortization_monthly.csv", monthly_with_extra_df.to_csv(index=False))
+        except Exception:
+            pass
+        try:
+            sy_year_df = annual_with_extra[['Year','Interest Saved (Year)','PMI Saved (Year)']].copy()
+            sy_cum_df  = annual_with_extra[['Year','Interest Saved (Cum)','PMI Saved (Cum)']].copy()
+            zf.writestr("savings_by_year.csv", sy_year_df.to_csv(index=False))
+            zf.writestr("savings_cumulative.csv", sy_cum_df.to_csv(index=False))
+        except Exception:
+            pass
+        try:
+            zf.writestr("cost_comparison_full.csv", cost_comparison_df.to_csv(index=False))
+        except Exception:
+            pass
+    st.download_button("Download ZIP", data=zbuf.getvalue(), file_name="rent_vs_buy_export.zip", mime="application/zip")
 
 thick_divider()
 
@@ -1851,7 +1940,6 @@ thick_divider()
 # =====================================================
 
 section_header("5) Monte Carlo — Probabilistic Outcomes", "")
-st.header("5) Monte Carlo — Probabilistic Outcomes")
 run_mc = st.button("Run Monte Carlo with updated parameters")
 
 with st.container(border=True):
@@ -1987,6 +2075,8 @@ with st.container(border=True):
     buy_prob = buy_gt_rent_counts / n_trials
     fig_prob = go.Figure()
     fig_prob.add_trace(go.Scatter(x=years, y=buy_prob, mode="lines", name="P(Buy beats Rent)"))
+    fig_prob.add_hline(y=0.5, line_dash='dot', opacity=0.5)
+    fig_prob.update_yaxes(title='Probability (0–1)', range=[0,1])
     if 'refi_start_date' in globals() and refi_start_date:
         fig_prob.add_vline(x=refi_start_date.year, line_dash="dash", line_color="orange")
     if 'purchase_year' in globals():

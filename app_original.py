@@ -12,7 +12,7 @@ import plotly.io as pio
 # Consistent, clean default theme for all charts
 pio.templates.default = "plotly_white"
 try:
-    px.defaults.color_discrete_sequence = px.colors.qualitative.Set2
+    px.defaults.color_discrete_sequence = ["#4C78A8","#B279A2","#9C755F","#F2CF5B","#8E6C8A","#7F7F7F","#A0A0A0"]
 except Exception:
     pass
 
@@ -92,7 +92,7 @@ st.markdown("""
     background: var(--bg);
   }
   section.main > div {padding-top: 8px;}
-  div[data-testid="stMetricValue"] { font-weight: 700; }
+  div[data-testid="stMetricValue"] { font-weight: 400; }
   div[data-testid="metric-container"] {
     padding: 8px 10px;
     border: 1px solid #e2e8f0;
@@ -139,7 +139,7 @@ with st.expander("Welcome & Instructions", expanded=True):
     The core calculation framework is consistent across both views — the difference is whether selected variables
     are modeled as fixed values (deterministic) or as distributions (probabilistic).
 
-    ### What this tool enables you to do (short)
+    ### What you’ll learn / do (BLUF)
     - Compare one-time and ongoing costs for buying vs renting and see year-by-year breakdowns.
     - Explore mortgage amortization, extra payments, and refinance impacts on interest and payoff timelines.
     - Project asset and net asset evolution under different assumptions.
@@ -169,17 +169,7 @@ with st.expander("Welcome & Instructions", expanded=True):
 
 # Inputs
 st.header("1. Inputs")
-st.markdown("Configure the parameters below to compare renting vs. buying. All fields are required unless marked optional. Use the preset options or reset to defaults for quick setup.")
-st.info("**Evaluation Period** controls the range for all charts and tables so you can see projections well past payoff. It shows how assets and costs evolve (e.g., rent keeps inflating, while a fixed-rate mortgage stays constant).")
-
-# Preset and Reset Buttons
-col_preset, col_reset = st.columns([1, 1])
-with col_preset:
-    preset = st.selectbox("Load Preset Values", ["Default", "High-Cost Urban", "Low-Cost Suburban"], help="Select a preset to auto-fill values based on common scenarios.")
-with col_reset:
-    if st.button("Apply", help="Revert all inputs to their default values."):
-        st.session_state.clear()
-
+st.markdown("Configure the parameters below to compare renting vs. buying. All fields are required unless marked optional. Adjust parameters below to compare renting vs. buying.")
 # Ensure property tax growth default
 if 'annual_property_tax_increase' not in st.session_state:
     st.session_state['annual_property_tax_increase'] = 3.0
@@ -359,46 +349,47 @@ st.markdown("")
 st.markdown('<div class="highlight-box">One-Time Costs: Closing costs, points (if paid upfront), emergency repairs in the specified year.</div>', unsafe_allow_html=True)
 
 # Ongoing Expenses
-st.subheader("Ongoing Homeownership Expenses")
-with st.container(border=True):
-    col1, col2 = st.columns(2)
-    with col1:
-        st.markdown("**Recurring Expenses**")
-        st.markdown("Enter annual recurring expenses for homeownership.")
-        default_property_expenses = pd.DataFrame({
-            "Category": ["Property Taxes", "Home Insurance", "Routine Maintenance", "HOA Fees"],
-            "Amount ($)": [st.session_state["property_taxes"], st.session_state["home_insurance"], st.session_state["maintenance"], st.session_state["hoa_fees"]]
-        })
-        edited_property_expenses = st.data_editor(
-            default_property_expenses,
-            column_config={
-                "Category": st.column_config.TextColumn("Category", help="Type of recurring expense."),
-                "Amount ($)": st.column_config.NumberColumn("Amount ($)", min_value=0, step=100, help="Annual cost in dollars.")
-            },
-            hide_index=True,
-            num_rows="dynamic"
-        )
+st.subheader("Homeownership Expenses")
+with st.expander("Homeownership Expenses (click to expand)", expanded=False):
+    with st.container(border=True):
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("**Recurring Expenses**")
+            st.markdown("Enter annual recurring expenses for homeownership.")
+            default_property_expenses = pd.DataFrame({
+                "Category": ["Property Taxes", "Home Insurance", "Routine Maintenance", "HOA Fees"],
+                "Amount ($)": [st.session_state["property_taxes"], st.session_state["home_insurance"], st.session_state["maintenance"], st.session_state["hoa_fees"]]
+            })
+            edited_property_expenses = st.data_editor(
+                default_property_expenses,
+                column_config={
+                    "Category": st.column_config.TextColumn("Category", help="Type of recurring expense."),
+                    "Amount ($)": st.column_config.NumberColumn("Amount ($)", min_value=0, step=100, help="Annual cost in dollars.")
+                },
+                hide_index=True,
+                num_rows="dynamic"
+            )
 
-    with col2:
-        st.markdown("**One-Time Expenses**")
-        st.markdown("Enter one-time emergency repair costs.")
-        default_emergency_expenses = pd.DataFrame({
-            "Category": ["Appliance Replacement", "Septic Repair", "Roof Repair"],
-            "Amount ($)": [1500, 8000, 12000],
-            "Year": [purchase_year + 1, purchase_year + 5, purchase_year + 10],
-            "Month": [5, 7, 9]
-        })
-        edited_emergency_expenses = st.data_editor(
-            default_emergency_expenses,
-            column_config={
-                "Category": st.column_config.TextColumn("Category", help="Type of emergency repair."),
-                "Amount ($)": st.column_config.NumberColumn("Amount ($)", min_value=0, step=100, help="Cost of the repair."),
-                "Year": st.column_config.NumberColumn("Year", min_value=purchase_year, max_value=purchase_year + loan_years, step=1, help="Year of the repair."),
-                "Month": st.column_config.NumberColumn("Month", min_value=1, max_value=12, step=1, help="Month of the repair.")
-            },
-            hide_index=True,
-            num_rows="dynamic"
-        )
+        with col2:
+            st.markdown("**One-Time Expenses**")
+            st.markdown("Enter one-time emergency repair costs.")
+            default_emergency_expenses = pd.DataFrame({
+                "Category": ["Appliance Replacement", "Septic Repair", "Roof Repair"],
+                "Amount ($)": [1500, 8000, 12000],
+                "Year": [purchase_year + 1, purchase_year + 5, purchase_year + 10],
+                "Month": [5, 7, 9]
+            })
+            edited_emergency_expenses = st.data_editor(
+                default_emergency_expenses,
+                column_config={
+                    "Category": st.column_config.TextColumn("Category", help="Type of emergency repair."),
+                    "Amount ($)": st.column_config.NumberColumn("Amount ($)", min_value=0, step=100, help="Cost of the repair."),
+                    "Year": st.column_config.NumberColumn("Year", min_value=purchase_year, max_value=purchase_year + loan_years, step=1, help="Year of the repair."),
+                    "Month": st.column_config.NumberColumn("Month", min_value=1, max_value=12, step=1, help="Month of the repair.")
+                },
+                hide_index=True,
+                num_rows="dynamic"
+            )
 
 st.markdown("### Appreciation and Growth Rates")
 with st.container(border=True):
@@ -413,14 +404,17 @@ with st.container(border=True):
 
 # Rental Parameters
 st.subheader("Rental Parameters")
+st.markdown("**Clear separation from Buying parameters** — inputs below apply to renting only.")
 with st.container(border=True):
     col1, col2 = st.columns(2)
     with col1:
+        st.markdown("#### Recurring (Monthly/Annual)")
         cost_of_rent = st.number_input(f"Initial Monthly Rent ({purchase_year}) ($)", value=st.session_state["cost_of_rent"], step=50, min_value=0, help="Monthly rent excluding utilities and fees.")
         annual_rent_increase = st.number_input("Annual Rent Increase (%)", value=st.session_state["annual_rent_increase"], step=0.1, min_value=0.0, help="Expected annual increase in rent.")
         renters_insurance = st.number_input("Annual Renters' Insurance ($)", value=st.session_state["renters_insurance"], step=50, min_value=0, help="Yearly cost of renters' insurance.")
         security_deposit = st.number_input("Security Deposit ($)", value=st.session_state["security_deposit"], step=100, min_value=0, help="One-time deposit, invested as opportunity cost.")
     with col2:
+        st.markdown("#### One-time / Per-lease")
         rental_utilities = st.number_input("Annual Rental Utilities ($)", value=st.session_state["rental_utilities"], step=100, min_value=0, help="Yearly utility costs for renting.")
         pet_fee = st.number_input("Pet Fee/Deposit ($)", value=st.session_state["pet_fee"], step=50, min_value=0, help="One-time or annual pet fee, depending on frequency.")
         pet_fee_frequency = st.selectbox("Pet Fee Frequency", ["One-time", "Annual"], index=0, help="Whether pet fee is one-time or annual.")
@@ -437,6 +431,7 @@ with st.container(border=True):
         vti_annual_return = st.number_input("Annual Personal Brokerage Account Return (%)", value=st.session_state["vti_annual_return"], step=0.1, min_value=0.0, help="Expected annual return on investments (e.g., Personal Brokerage Account).")
     with col2:
         st.markdown("### Evaluation Period")
+        st.caption("This sets the analysis horizon used across all tables and charts, including amortization, costs, assets, and net assets.")
         eval_start_year = st.number_input("Evaluation Start Year", value=2025, step=1, min_value=2000, max_value=2100, help="Start year for analysis.")
         eval_end_year = st.number_input("Evaluation End Year", value=2070, step=1, min_value=eval_start_year, max_value=2100, help="End year for analysis.")
         if eval_end_year < eval_start_year:
@@ -806,23 +801,23 @@ def calculate_cost_comparison(
     return pd.DataFrame(comparison_data)
 
 @st.cache_data
-def calculate_breakeven(no_refi_monthly_df, main_monthly_df, refi_costs, refi_points_cost, roll_costs, refi_points_cost_method):
-    total_costs = (refi_costs if roll_costs == "Pay Upfront" else 0) + (refi_points_cost if refi_points_cost_method == "Pay Upfront" else 0)
-    if total_costs == 0:
+def calculate_breakeven(no_refi_monthly_df, monthly_with_extra_df, refi_costs, refi_points_cost, roll_costs, refi_points_cost_method):
+    """Breakeven when total refi costs == cumulative (Interest + PMI) savings."""
+    total_costs = float(refi_costs or 0) + float(refi_points_cost or 0)
+    if total_costs <= 0:
         return None, None
-
     no_refi_cum_interest = no_refi_monthly_df['Interest'].cumsum()
-    no_refi_cum_pmi = no_refi_monthly_df['PMI'].cumsum()
-    refi_cum_interest = main_monthly_df['Interest'].cumsum()
-    refi_cum_pmi = main_monthly_df['PMI'].cumsum()
+    no_refi_cum_pmi = no_refi_monthly_df['PMI'].cumsum() if 'PMI' in no_refi_monthly_df.columns else 0.0
+    refi_cum_interest = monthly_with_extra_df['Interest'].cumsum()
+    refi_cum_pmi = monthly_with_extra_df['PMI'].cumsum() if 'PMI' in monthly_with_extra_df.columns else 0.0
     savings = (no_refi_cum_interest + no_refi_cum_pmi) - (refi_cum_interest + refi_cum_pmi)
-
     breakeven_idx = savings[savings >= total_costs].index
-    if not breakeven_idx.empty:
-        breakeven_month = breakeven_idx[0] + 1
+    if len(breakeven_idx) > 0:
+        breakeven_month = int(breakeven_idx[0]) + 1
         breakeven_years = breakeven_month / 12
         return breakeven_years, breakeven_month
     return None, None
+
 
 @st.cache_data
 def get_remaining_balance(schedule_df, refi_date):
@@ -857,7 +852,7 @@ if show_refinance:
     refi_effective_principal = get_remaining_balance(no_refi_schedule_df, refi_start_date) + (refi_costs if roll_costs == "Add to Loan Balance" else 0) + (refi_points_cost if refi_points_cost_method == "Add to Loan Balance" else 0)
 
 main_periods_per_year = 12 if payment_frequency == "Monthly" else 26
-main_schedule_df, main_monthly_df, main_annual_df = amortization_schedule(
+schedule_with_extra_df, monthly_with_extra_df, annual_with_extra_df = amortization_schedule(
     principal=effective_principal,
     years=loan_years,
     periods_per_year=main_periods_per_year,
@@ -879,7 +874,7 @@ main_schedule_df, main_monthly_df, main_annual_df = amortization_schedule(
     refi_mortgage_rate=refi_effective_rate
 )
 
-no_extra_schedule_df, no_extra_monthly_df, no_extra_annual_df = amortization_schedule(
+schedule_without_extra_df, monthly_without_extra_df, annual_without_extra_df = amortization_schedule(
     principal=effective_principal,
     years=loan_years,
     periods_per_year=main_periods_per_year,
@@ -901,12 +896,12 @@ no_extra_schedule_df, no_extra_monthly_df, no_extra_annual_df = amortization_sch
     refi_mortgage_rate=refi_effective_rate
 )
 
-monthly_payment = main_schedule_df['Payment'].iloc[0] if main_periods_per_year == 12 else main_schedule_df['Payment'].iloc[0] * 26 / 12
-payment_per_period = main_schedule_df['Payment'].iloc[0]
-total_interest = main_schedule_df['Interest'].sum()
-total_pmi = main_schedule_df['PMI'].sum()
-payoff_years = len(main_schedule_df) / main_periods_per_year
-payoff_date = main_schedule_df[main_schedule_df['Balance'] <= 0]['Date'].min() if (main_schedule_df['Balance'] <= 0).any() else main_schedule_df['Date'].max()
+monthly_payment = schedule_with_extra_df['Payment'].iloc[0] if main_periods_per_year == 12 else schedule_with_extra_df['Payment'].iloc[0] * 26 / 12
+payment_per_period = schedule_with_extra_df['Payment'].iloc[0]
+total_interest = schedule_with_extra_df['Interest'].sum()
+total_pmi = schedule_with_extra_df['PMI'].sum()
+payoff_years = len(schedule_with_extra_df) / main_periods_per_year
+payoff_date = schedule_with_extra_df[schedule_with_extra_df['Balance'] <= 0]['Date'].min() if (schedule_with_extra_df['Balance'] <= 0).any() else schedule_with_extra_df['Date'].max()
 payoff_year = payoff_date.year
 payoff_month = payoff_date.month
 
@@ -919,7 +914,7 @@ if show_refinance and refi_start_date:
     interest_saved_refi = no_refi_schedule_df['Interest'].sum() - total_interest
     pmi_saved_refi = no_refi_schedule_df['PMI'].sum() - total_pmi
     payoff_difference_refi = len(no_refi_schedule_df) / 12 - payoff_years
-    breakeven_years, breakeven_months = calculate_breakeven(no_refi_monthly_df, main_monthly_df, refi_costs, refi_points_cost, roll_costs, refi_points_cost_method)
+    breakeven_years, breakeven_months = calculate_breakeven(no_refi_monthly_df, monthly_with_extra_df, refi_costs, refi_points_cost, roll_costs, refi_points_cost_method)
 
 interest_saved_biweekly = 0
 payoff_difference_biweekly = 0
@@ -949,7 +944,7 @@ if payment_frequency == "Biweekly":
     payoff_difference_biweekly = len(monthly_comparison_df) / 12 - payoff_years
 
 cost_comparison_df = calculate_cost_comparison(
-    main_annual_df,
+    annual_with_extra_df,
     edited_property_expenses,
     edited_emergency_expenses,
     purchase_year,
@@ -992,64 +987,37 @@ cost_comparison_df['Asset % Difference (Buy vs Rent)'] = np.where(
 )
 
 # Display
+thick_divider()
 st.header("Mortgage Metrics")
-scenario_text = f"{payment_frequency} Payments" + (" with Refinance" if show_refinance else "")
 with st.container(border=True):
-    st.markdown(f"<h3 style='margin: 0;'>{scenario_text}</h3>", unsafe_allow_html=True)
-    if show_refinance and refi_start_date:
-        st.markdown("**Original vs. Refinance (stacked)**")
-        orig_col, refi_col = st.columns(2)
-        with orig_col:
-            st.markdown("**Original Mortgage**")
-            st.metric("Loan Amount", f"${display_loan_amount:,.0f}")
-            st.metric("Rate", f"{effective_mortgage_rate:.3f}%")
-            st.metric("Term (Years)", f"{loan_years}")
-        with refi_col:
-            st.markdown("**Refinanced Mortgage**")
+    left, right = st.columns(2)
+    with left:
+        st.subheader("Original Mortgage")
+        st.metric("Loan Amount", f"${display_loan_amount:,.0f}")
+        st.metric("Rate", f"{effective_mortgage_rate:.3f}%")
+        st.metric("Term (Years)", f"{loan_years}")
+        st.metric("Monthly Payment", f"${monthly_payment:,.2f}")
+        st.metric("Payment per Period", f"${payment_per_period:,.2f}")
+        st.metric("Total Interest", f"${total_interest:,.2f}")
+        st.metric("Total PMI", f"${total_pmi:,.2f}")
+        st.metric("Payoff", f"{payoff_year}-{payoff_month:02d}")
+    with right:
+        st.subheader("Refinance")
+        if show_refinance and refi_start_date and refi_effective_principal is not None:
             st.metric("New Principal (at Refi)", f"${refi_effective_principal:,.0f}")
             st.metric("Refi Rate", f"{refi_effective_rate:.3f}%")
             st.metric("Refi Term (Years)", f"{refi_term_years}")
-    else:
-        st.markdown("**Original Mortgage**")
-
-with st.container(border=True):
-    st.markdown(f"<h3 style='margin: 0;'>{scenario_text}</h3>", unsafe_allow_html=True)
-    cols = st.columns(4)
-    cols[0].metric("Loan Amount", f"${loan_amount:,.0f}")
-    cols[1].metric("% Down Payment", f"{percent_down:.2f}%")
-    cols[2].metric("Monthly Payment", f"${monthly_payment:,.2f}")
-    cols[3].metric("Payment per Period", f"${payment_per_period:,.2f}")
-    cols = st.columns(4)
-    cols[0].metric("Total Interest", f"${total_interest:,.2f}")
-    cols[1].metric("Total PMI", f"${total_pmi:,.2f}")
-    cols[2].metric("Payoff Year", payoff_year)
-    cols[3].metric("Payoff Month", payoff_month)
-
-if show_refinance and refi_start_date:
-    st.header("Refinance Savings and Breakeven")
-    with st.container(border=True):
-        cols = st.columns(4)
-        cols[0].metric("Interest Saved" if interest_saved_refi >= 0 else "Additional Interest", f"${abs(interest_saved_refi):,.2f}", help="Interest saved (or added) due to refinance.")
-        cols[1].metric("PMI Saved" if pmi_saved_refi >= 0 else "Additional PMI", f"${abs(pmi_saved_refi):,.2f}", help="PMI saved (or added) due to refinance.")
-        cols[2].metric("Payoff Time Difference", f"{abs(payoff_difference_refi):,.1f} years {'shorter' if payoff_difference_refi >= 0 else 'longer'}", help="Change in payoff time due to refinance.")
-        if breakeven_years is not None:
-            cols[3].metric("Breakeven Point", f"{breakeven_years:.1f} years ({breakeven_months:.1f} months)", help="Time until refinance savings offset upfront costs.")
+            breakeven_years, breakeven_months = calculate_breakeven(no_refi_monthly_df, monthly_with_extra_df, refi_costs, refi_points_cost, "Pay Upfront", "Pay Upfront")
+            st.caption("Breakeven = when cumulative Interest+PMI savings exceed total refi costs (incl. points). " + (f"~{breakeven_years:.1f} years ({breakeven_months:.0f} months)" if breakeven_years else "Not reached in horizon."))
         else:
-            cols[3].metric("Breakeven Point", "Not applicable", help="Breakeven = months/years until interest+PMI savings from the refinance exceed upfront refi costs (closing + points paid upfront). If nothing is paid upfront, breakeven is not applicable.")
-
-if payment_frequency == "Biweekly":
-    st.header("Biweekly Savings")
-    with st.container(border=True):
-        cols = st.columns(2)
-        cols[0].metric("Interest Saved" if interest_saved_biweekly >= 0 else "Additional Interest", f"${abs(interest_saved_biweekly):,.2f}", help="Interest saved due to biweekly payments.")
-        cols[1].metric("Payoff Time Difference", f"{abs(payoff_difference_biweekly):,.1f} years {'shorter' if payoff_difference_biweekly >= 0 else 'longer'}", help="Payoff time reduction from biweekly payments.")
+            st.caption("Refinance disabled or not configured.")
 
 st.header("Amortization Schedule")
 st.markdown("**Note**: 'Loan Type' indicates 'Original' (white) or 'Refinance' (blue). 'Effective Rate (%)' shows the applied interest rate.")
 tab1, tab2 = st.tabs(["Annual", "Monthly"])
 with tab1:
     st.dataframe(
-        main_annual_df.style.format({
+        annual_with_extra_df.style.format({
             "Date": "{:%Y}",
             "Payment": "${:,.2f}",
             "Interest": "${:,.2f}",
@@ -1063,7 +1031,7 @@ with tab1:
     )
 with tab2:
     st.dataframe(
-        main_monthly_df.style.format({
+        monthly_with_extra_df.style.format({
             "Date": "{:%Y-%m}",
             "Payment": "${:,.2f}",
             "Interest": "${:,.2f}",
@@ -1077,19 +1045,23 @@ with tab2:
     )
 
 st.header("Amortization Breakdown")
-main_schedule_df['Year'] = main_schedule_df['Date'].dt.year
-main_annual = main_annual_df.copy()
-main_annual['Year'] = main_annual['Date'].dt.year
-main_annual['Cum Principal'] = main_annual['Principal'].cumsum()
-main_annual['Cum Interest'] = main_annual['Interest'].cumsum()
-main_annual['Cum PMI'] = main_annual['PMI'].cumsum() if 'PMI' in main_annual.columns else 0.0
+show_baseline = st.checkbox("Show baseline without extra principal (dashed)", value=True)
+schedule_with_extra_df['Year'] = schedule_with_extra_df['Date'].dt.year
+annual_with_extra = annual_with_extra_df.copy()
+annual_with_extra['Year'] = annual_with_extra['Date'].dt.year
+annual_with_extra['Cum Principal'] = annual_with_extra['Principal'].cumsum()
+annual_with_extra['Cum Interest'] = annual_with_extra['Interest'].cumsum()
+annual_with_extra['Cum PMI'] = annual_with_extra['PMI'].cumsum() if 'PMI' in annual_with_extra.columns else 0.0
 
 tab1, tab2, tab3 = st.tabs(["By Payment", "By Year", "Cumulative Payoff"])
 with tab1:
     fig_amort_payment = go.Figure()
-    fig_amort_payment.add_trace(go.Scatter(x=main_schedule_df['Date'], y=main_schedule_df['Principal'], mode='lines', name='Principal (With Extra)', line=dict(dash='solid', color='rgba(33, 150, 243, 1)')))
-    fig_amort_payment.add_trace(go.Scatter(x=main_schedule_df['Date'], y=main_schedule_df['Interest'], mode='lines', name='Interest (With Extra)', line=dict(dash='solid')))
-    fig_amort_payment.add_trace(go.Bar(x=main_schedule_df['Date'], y=main_schedule_df['PMI'], name='PMI', yaxis='y2', opacity=0.4))
+    fig_amort_payment.add_trace(go.Scatter(x=schedule_with_extra_df['Date'], y=schedule_with_extra_df['Principal'], mode='lines', name='Principal (With Extra)', line=dict(dash='solid', color='rgba(33, 150, 243, 1)')))
+    fig_amort_payment.add_trace(go.Scatter(x=schedule_with_extra_df['Date'], y=schedule_with_extra_df['Interest'], mode='lines', name='Interest (With Extra)', line=dict(dash='solid')))
+    fig_amort_payment.add_trace(go.Bar(x=schedule_with_extra_df['Date'], y=schedule_with_extra_df['PMI'], name='PMI', yaxis='y2', opacity=0.4))
+    if show_baseline:
+        fig_amort_payment.add_trace(go.Scatter(x=schedule_without_extra_df['Date'], y=schedule_without_extra_df['Principal'], mode='lines', name='Principal (No Extra)', line=dict(dash='dash')))
+        fig_amort_payment.add_trace(go.Scatter(x=schedule_without_extra_df['Date'], y=schedule_without_extra_df['Interest'], mode='lines', name='Interest (No Extra)', line=dict(dash='dash')))
     fig_amort_payment.update_layout(
         plot_bgcolor="rgb(245, 245, 245)", paper_bgcolor="rgb(245, 245, 245)",
         xaxis_title='Date', yaxis_title='Amount ($)', yaxis2=dict(overlaying='y', side='right', title='PMI ($)'),
@@ -1105,9 +1077,14 @@ with tab1:
 
 with tab2:
     fig_amort_year = go.Figure()
-    fig_amort_year.add_trace(go.Scatter(x=main_annual['Year'], y=main_annual['Principal'], mode='lines', name='Principal (With Extra)', line=dict(dash='solid', color='rgba(33, 150, 243, 1)')))
-    fig_amort_year.add_trace(go.Scatter(x=main_annual['Year'], y=main_annual['Interest'], mode='lines', name='Interest (With Extra)', line=dict(dash='solid')))
-    fig_amort_year.add_trace(go.Bar(x=main_annual['Year'], y=main_annual['PMI'], name='PMI', yaxis='y2', opacity=0.4))
+    fig_amort_year.add_trace(go.Scatter(x=annual_with_extra['Year'], y=annual_with_extra['Principal'], mode='lines', name='Principal (With Extra)', line=dict(dash='solid', color='rgba(33, 150, 243, 1)')))
+    fig_amort_year.add_trace(go.Scatter(x=annual_with_extra['Year'], y=annual_with_extra['Interest'], mode='lines', name='Interest (With Extra)', line=dict(dash='solid')))
+    fig_amort_year.add_trace(go.Bar(x=annual_with_extra['Year'], y=annual_with_extra['PMI'], name='PMI', yaxis='y2', opacity=0.4))
+    if show_baseline:
+        annual_without_extra_local = annual_without_extra_df.copy()
+        annual_without_extra_local['Year'] = annual_without_extra_local['Date'].dt.year
+        fig_amort_year.add_trace(go.Scatter(x=annual_without_extra_local['Year'], y=annual_without_extra_local['Principal'], mode='lines', name='Principal (No Extra)', line=dict(dash='dash')))
+        fig_amort_year.add_trace(go.Scatter(x=annual_without_extra_local['Year'], y=annual_without_extra_local['Interest'], mode='lines', name='Interest (No Extra)', line=dict(dash='dash')))
     fig_amort_year.update_layout(
         plot_bgcolor="rgb(245, 245, 245)", paper_bgcolor="rgb(245, 245, 245)",
         xaxis_title='Year', yaxis_title='Amount ($)', yaxis2=dict(overlaying='y', side='right', title='PMI ($)'),
@@ -1121,9 +1098,16 @@ with tab2:
 
 with tab3:
     fig_amort_cum = go.Figure()
-    fig_amort_cum.add_trace(go.Scatter(x=main_annual['Year'], y=main_annual['Cum Principal'], mode='lines', name='Principal (With Extra)', line=dict(dash='solid', color='rgba(33, 150, 243, 1)')))
-    fig_amort_cum.add_trace(go.Scatter(x=main_annual['Year'], y=main_annual['Cum Interest'], mode='lines', name='Interest (With Extra)', line=dict(dash='solid')))
-    fig_amort_cum.add_trace(go.Bar(x=main_annual['Year'], y=main_annual['Cum PMI'], name='PMI', yaxis='y2', opacity=0.4))
+    fig_amort_cum.add_trace(go.Scatter(x=annual_with_extra['Year'], y=annual_with_extra['Cum Principal'], mode='lines', name='Principal (With Extra)', line=dict(dash='solid', color='rgba(33, 150, 243, 1)')))
+    fig_amort_cum.add_trace(go.Scatter(x=annual_with_extra['Year'], y=annual_with_extra['Cum Interest'], mode='lines', name='Interest (With Extra)', line=dict(dash='solid')))
+    fig_amort_cum.add_trace(go.Bar(x=annual_with_extra['Year'], y=annual_with_extra['Cum PMI'], name='PMI', yaxis='y2', opacity=0.4))
+    if show_baseline:
+        annual_without_extra_local = annual_without_extra_df.copy()
+        annual_without_extra_local['Year'] = annual_without_extra_local['Date'].dt.year
+        annual_without_extra_local['Cum Principal'] = annual_without_extra_local['Principal'].cumsum()
+        annual_without_extra_local['Cum Interest'] = annual_without_extra_local['Interest'].cumsum()
+        fig_amort_cum.add_trace(go.Scatter(x=annual_without_extra_local['Year'], y=annual_without_extra_local['Cum Principal'], mode='lines', name='Cum Principal (No Extra)', line=dict(dash='dash')))
+        fig_amort_cum.add_trace(go.Scatter(x=annual_without_extra_local['Year'], y=annual_without_extra_local['Cum Interest'], mode='lines', name='Cum Interest (No Extra)', line=dict(dash='dash')))
     fig_amort_cum.update_layout(
         plot_bgcolor="rgb(245, 245, 245)", paper_bgcolor="rgb(245, 245, 245)",
         xaxis_title='Year', yaxis_title='Cumulative Amount ($)', yaxis2=dict(overlaying='y', side='right', title='PMI ($)'),
@@ -1136,32 +1120,42 @@ with tab3:
     st.plotly_chart(fig_amort_cum, use_container_width=True)
 
 st.divider()  # divider between Mortgage Metrics and Savings Comparison
-# Prepare no-extra baseline for savings comparison
-no_extra_annual = no_extra_annual_df.copy()
-no_extra_annual['Year'] = no_extra_annual['Date'].dt.year
-no_extra_annual['Cum Principal'] = no_extra_annual['Principal'].cumsum()
-no_extra_annual['Cum Interest'] = no_extra_annual['Interest'].cumsum()
-if 'PMI' in no_extra_annual.columns:
-    no_extra_annual['Cum PMI'] = no_extra_annual['PMI'].cumsum()
-else:
-    no_extra_annual['Cum PMI'] = 0.0
+# Prepare baseline (without extra payments) for savings comparison
+annual_without_extra = annual_without_extra_df.copy()
+annual_without_extra['Year'] = annual_without_extra['Date'].dt.year
+annual_without_extra['Cum Principal'] = annual_without_extra['Principal'].cumsum()
+annual_without_extra['Cum Interest'] = annual_without_extra['Interest'].cumsum()
+annual_without_extra['Cum PMI'] = annual_without_extra['PMI'].cumsum() if 'PMI' in annual_without_extra.columns else 0.0
+
 st.header("Savings from Extra Payments")
-main_annual['Interest Saved'] = no_extra_annual['Cum Interest'] - main_annual['Cum Interest']
-main_annual['PMI Saved'] = no_extra_annual['Cum PMI'] - main_annual['Cum PMI']
-fig_saved_extra = go.Figure()
-fig_saved_extra.add_trace(go.Scatter(x=main_annual['Year'], y=main_annual['Interest Saved'], mode='lines+markers', name='Interest Saved'))
-fig_saved_extra.add_trace(go.Scatter(x=main_annual['Year'], y=main_annual['PMI Saved'], mode='lines+markers', name='PMI Saved', yaxis='y2'))
-fig_saved_extra.update_layout(
-    plot_bgcolor="rgb(245, 245, 245)", paper_bgcolor="rgb(245, 245, 245)",
-    xaxis_title='Year', yaxis_title='Interest Saved ($)', yaxis2=dict(overlaying='y', side='right', title='PMI Saved ($)'),
-    legend=dict(yanchor="top", y=1.1, xanchor="left", x=0)
-)
-if show_refinance and refi_start_date:
-    fig_saved_extra.add_vline(x=refi_start_date.year, line_dash="dash", line_color="orange", annotation_text="Refinance")
-if payoff_year and eval_start_year <= payoff_year <= eval_end_year:
-    fig_saved_extra.add_vline(x=payoff_year, line_dash="dash", line_color="purple", annotation_text="Payoff")
-fig_saved_extra.add_hline(y=0, line_dash='dash', line_color='black')
-st.plotly_chart(fig_saved_extra, use_container_width=True)
+annual_with_extra['Interest Saved (Cum)'] = (annual_without_extra['Cum Interest'] - annual_with_extra['Cum Interest']).fillna(0)
+annual_with_extra['PMI Saved (Cum)'] = (annual_without_extra['Cum PMI'] - annual_with_extra['Cum PMI']).fillna(0)
+annual_with_extra['Interest Saved (Year)'] = annual_with_extra['Interest Saved (Cum)'].diff().fillna(annual_with_extra['Interest Saved (Cum)'])
+annual_with_extra['PMI Saved (Year)'] = annual_with_extra['PMI Saved (Cum)'].diff().fillna(annual_with_extra['PMI Saved (Cum)'])
+
+tab_y, tab_c = st.tabs(["By Year", "Cumulative"])
+with tab_y:
+    fig_sy = go.Figure()
+    fig_sy.add_trace(go.Scatter(x=annual_with_extra['Year'], y=annual_with_extra['Interest Saved (Year)'], mode='lines+markers', name='Interest Saved (Year)'))
+    fig_sy.add_trace(go.Scatter(x=annual_with_extra['Year'], y=annual_with_extra['PMI Saved (Year)'], mode='lines+markers', name='PMI Saved (Year)', yaxis='y2'))
+    fig_sy.update_layout(
+        plot_bgcolor="rgb(245, 245, 245)", paper_bgcolor="rgb(245, 245, 245)",
+        xaxis_title='Year', yaxis_title='Interest Saved ($)', yaxis2=dict(overlaying='y', side='right', title='PMI Saved ($)'),
+        legend=dict(yanchor="top", y=1.1, xanchor="left", x=0)
+    )
+    st.plotly_chart(fig_sy, use_container_width=True)
+
+with tab_c:
+    fig_sc = go.Figure()
+    fig_sc.add_trace(go.Scatter(x=annual_with_extra['Year'], y=annual_with_extra['Interest Saved (Cum)'], mode='lines+markers', name='Interest Saved (Cum)'))
+    fig_sc.add_trace(go.Scatter(x=annual_with_extra['Year'], y=annual_with_extra['PMI Saved (Cum)'], mode='lines+markers', name='PMI Saved (Cum)', yaxis='y2'))
+    fig_sc.update_layout(
+        plot_bgcolor="rgb(245, 245, 245)", paper_bgcolor="rgb(245, 245, 245)",
+        xaxis_title='Year', yaxis_title='Interest Saved ($)', yaxis2=dict(overlaying='y', side='right', title='PMI Saved ($)'),
+        legend=dict(yanchor="top", y=1.1, xanchor="left", x=0)
+    )
+    st.plotly_chart(fig_sc, use_container_width=True)
+
 
 # Savings from Buying Points
 if buy_points and points > 0:
@@ -1187,7 +1181,7 @@ if buy_points and points > 0:
         pmi_equity_threshold=pmi_equity_threshold,
         purchase_price=purchase_price
     )
-    pts_annual = main_annual_df.copy()
+    pts_annual = annual_with_extra_df.copy()
     pts_annual['Year'] = pts_annual['Date'].dt.year
     no_pts_annual = no_points_annual.copy()
     no_pts_annual['Year'] = no_pts_annual['Date'].dt.year
@@ -1212,13 +1206,13 @@ if payment_frequency == "Biweekly":
     monthly_comp_annual['Year'] = monthly_comp_annual['Date'].dt.year
     monthly_comp_annual['Cum Interest'] = monthly_comp_annual['Interest'].cumsum()
     monthly_comp_annual['Cum PMI'] = monthly_comp_annual['PMI'].cumsum()
-    main_annual['Cum Interest'] = main_annual['Interest'].cumsum()
-    main_annual['Cum PMI'] = main_annual['PMI'].cumsum()
-    main_annual['Interest Saved'] = monthly_comp_annual['Cum Interest'] - main_annual['Cum Interest']
-    main_annual['PMI Saved'] = monthly_comp_annual['Cum PMI'] - main_annual['Cum PMI']
+    annual_with_extra['Cum Interest'] = annual_with_extra['Interest'].cumsum()
+    annual_with_extra['Cum PMI'] = annual_with_extra['PMI'].cumsum()
+    annual_with_extra['Interest Saved'] = monthly_comp_annual['Cum Interest'] - annual_with_extra['Cum Interest']
+    annual_with_extra['PMI Saved'] = monthly_comp_annual['Cum PMI'] - annual_with_extra['Cum PMI']
     fig_saved_bi = go.Figure()
-    fig_saved_bi.add_trace(go.Scatter(x=main_annual['Year'], y=main_annual['Interest Saved'], mode='lines+markers', name='Interest Saved'))
-    fig_saved_bi.add_trace(go.Scatter(x=main_annual['Year'], y=main_annual['PMI Saved'], mode='lines+markers', name='PMI Saved', yaxis='y2'))
+    fig_saved_bi.add_trace(go.Scatter(x=annual_with_extra['Year'], y=annual_with_extra['Interest Saved'], mode='lines+markers', name='Interest Saved'))
+    fig_saved_bi.add_trace(go.Scatter(x=annual_with_extra['Year'], y=annual_with_extra['PMI Saved'], mode='lines+markers', name='PMI Saved', yaxis='y2'))
     fig_saved_bi.update_layout(
         plot_bgcolor="rgb(245, 245, 245)", paper_bgcolor="rgb(245, 245, 245)",
         xaxis_title='Year', yaxis_title='Interest Saved ($)', yaxis2=dict(overlaying='y', side='right', title='PMI Saved ($)'),
@@ -1250,7 +1244,7 @@ st.header("2. Asset Metrics")
 st.markdown('<div class="highlight-box">Buying assets include home equity, appreciation, and Personal Brokerage Account investments. Renting assets include Personal Brokerage Account investments from cost savings and down payment.</div>', unsafe_allow_html=True)
 final_data = cost_comparison_df[cost_comparison_df["Year"] == selected_year]
 if not final_data.empty:
-    final_balance = main_annual_df[main_annual_df["Date"].dt.year == selected_year]["Balance"].iloc[-1] if selected_year in main_annual_df["Date"].dt.year.values else 0
+    final_balance = annual_with_extra_df[annual_with_extra_df["Date"].dt.year == selected_year]["Balance"].iloc[-1] if selected_year in annual_with_extra_df["Date"].dt.year.values else 0
     final_home_value = purchase_price * (1 + annual_appreciation / 100) ** (selected_year - purchase_year)
     equity_gain = final_data["Equity Gain"].iloc[0]
     appreciation = final_data["Appreciation"].iloc[0]
@@ -1544,42 +1538,50 @@ with st.container(border=True):
         )
         st.plotly_chart(fig_rent_cost_types, use_container_width=True)
 
-    with st.expander("Detailed Costs Breakdown by Year (Rent & Buy)", expanded=False):
-        cost_breakout = cost_comparison_df[['Year', 'Direct Costs (P&I)', 'PMI', 'Property Taxes', 'Home Insurance', 'Maintenance', 'Emergency', 'HOA Fees', 'Closing Costs', 'Points Costs', 'Total Buying Cost', 'Rent', 'Renters Insurance', 'Security Deposit', 'Utilities', 'Pet Fees', 'Application Fee', 'Lease Renewal Fee', 'Parking Fee', 'Total Renting Cost', 'Cost Difference (Buy - Rent)']]
-        cost_breakout['Year'] = cost_breakout['Year'].astype(str)
-        st.dataframe(cost_breakout.style.format({col: "${:,.2f}" for col in cost_breakout.columns if col != 'Year'}), hide_index=True)
+    
+with st.expander("Detailed Costs Breakdown by Year (Rent & Buy)", expanded=False):
+    cost_breakout = cost_comparison_df[['Year', 'Direct Costs (P&I)', 'PMI', 'Property Taxes', 'Home Insurance', 'Maintenance', 'Emergency', 'HOA Fees', 'Closing Costs', 'Points Costs', 'Total Buying Cost', 'Rent', 'Renters Insurance', 'Security Deposit', 'Utilities', 'Pet Fees', 'Application Fee', 'Lease Renewal Fee', 'Parking Fee', 'Total Renting Cost', 'Cost Difference (Buy - Rent)']]
+    cost_breakout['Year'] = cost_breakout['Year'].astype(str)
+    buy_cols = ['Direct Costs (P&I)', 'PMI', 'Property Taxes', 'Home Insurance', 'Maintenance', 'Emergency', 'HOA Fees', 'Closing Costs', 'Points Costs', 'Total Buying Cost']
+    rent_cols = ['Rent', 'Renters Insurance', 'Security Deposit', 'Utilities', 'Pet Fees', 'Application Fee', 'Lease Renewal Fee', 'Parking Fee', 'Total Renting Cost']
+    st.dataframe(
+        cost_breakout.style
+            .format({col: "${:,.2f}" for col in cost_breakout.columns if col != 'Year'})
+            .set_properties(subset=buy_cols, **{'background-color': '#eef2ff'})
+            .set_properties(subset=rent_cols, **{'background-color': '#f5f5f5'}),
+        hide_index=True
+    )
 
 thick_divider()
 
 # Net Asset Value (Assets - Costs) Over Time Section
+
 st.header("Net Asset Value (Assets - Costs) Over Time")
-st.markdown("Compare net assets (total assets minus cumulative costs) for buying vs. renting over time.")
+st.info("**Net Assets = Total Assets − Cumulative Costs.** A negative value means cumulative costs so far exceed assets accumulated to date; a positive value means assets exceed costs.")
 with st.container(border=True):
-    net_asset_data = pd.concat([
-        pd.DataFrame({
-            "Year": cost_comparison_df["Year"],
-            "Net Assets": cost_comparison_df["Buying Total Assets"] - cost_comparison_df["Cumulative Buying Cost"],
-            "Type": "Buying"
-        }),
-        pd.DataFrame({
-            "Year": cost_comparison_df["Year"],
-            "Net Assets": cost_comparison_df["Renting Total Assets"] - cost_comparison_df["Cumulative Renting Cost"],
-            "Type": "Renting"
-        })
-    ], ignore_index=True)
-    fig_net_assets = px.line(net_asset_data, x='Year', y='Net Assets', color='Type', markers=True)
-    fig_net_assets.update_layout(
-        plot_bgcolor="rgb(245, 245, 245)", paper_bgcolor="rgb(245, 245, 245)",
-        xaxis_title='Year', yaxis_title='Net Assets ($)',
-        legend=dict(yanchor="top", y=1.1, xanchor="left", x=0)
-    )
-    if show_refinance and refi_start_date:
-        fig_net_assets.add_vline(x=refi_start_date.year, line_dash="dash", line_color="orange", annotation_text="Refinance")
-    if purchase_year and eval_start_year <= purchase_year <= eval_end_year:
-        fig_net_assets.add_vline(x=purchase_year, line_dash="dash", line_color="blue", annotation_text="Purchase")
-    if payoff_year and eval_start_year <= payoff_year <= eval_end_year:
-        fig_net_assets.add_vline(x=payoff_year, line_dash="dash", line_color="purple", annotation_text="Payoff")
-    st.plotly_chart(fig_net_assets, use_container_width=True)
+    options = {
+        "Buy — Total Assets": ("Buying Total Assets", "Assets", "Buy"),
+        "Rent — Total Assets": ("Renting Total Assets", "Assets", "Rent"),
+        "Buy — Cumulative Costs": ("Cumulative Buying Cost", "Costs", "Buy"),
+        "Rent — Cumulative Costs": ("Cumulative Renting Cost", "Costs", "Rent"),
+        "Buy — Net Assets": ("Buying Total Assets", "Net", "Buy"),
+        "Rent — Net Assets": ("Renting Total Assets", "Net", "Rent"),
+    }
+    selected = st.multiselect("Select lines to display", list(options.keys()), ["Buy — Net Assets"])
+    long_df = []
+    for key in selected:
+        col_name, kind, side = options[key]
+        if kind == "Net":
+            vals = (cost_comparison_df["Buying Total Assets"] - cost_comparison_df["Cumulative Buying Cost"]) if side == "Buy" else (cost_comparison_df["Renting Total Assets"] - cost_comparison_df["Cumulative Renting Cost"])
+            label = f"{side} — Net Assets"
+        else:
+            vals = cost_comparison_df[col_name]
+            label = f"{side} — {kind}"
+        long_df.append(pd.DataFrame({"Year": cost_comparison_df["Year"], "Value": vals, "Series": label}))
+    nav_long = pd.concat(long_df, ignore_index=True) if long_df else pd.DataFrame(columns=["Year","Value","Series"])
+    fig_nav = px.line(nav_long, x="Year", y="Value", color="Series", markers=True)
+    fig_nav.update_layout(plot_bgcolor="rgb(245,245,245)", paper_bgcolor="rgb(245,245,245)")
+    st.plotly_chart(fig_nav, use_container_width=True)
 
 
 # =====================================================
@@ -1608,16 +1610,18 @@ with st.container(border=True):
         ln_mean = st.number_input("Housing annual mean (%)", value=st.session_state.get("housing_mean_pct", 3.0), step=0.1, key="ln_mean_pct")
         ln_std  = st.number_input("Housing annual std. dev. (%)", value=st.session_state.get("housing_std_pct", 8.0), step=0.5, key="ln_std_pct")
 
-    # Advanced parameters (to retain prior visuals and controls)
-    with st.expander("Advanced simulation parameters (for median-path visuals, from earlier version)", expanded=False):
-        col1, col2, col3 = st.columns(3)
-        t_scale = col1.number_input("t-distribution scale (stdev, as decimal)", min_value=0.0, value=0.18, step=0.01, format="%.2f")
-        t_loc   = col2.number_input("t-distribution location (mean, as decimal)", min_value=-1.0, max_value=1.0, value=0.07, step=0.01, format="%.2f")
-        ln_mu   = col3.number_input("Lognormal μ (log-mean of gross 1+r)", value=0.03, step=0.005, format="%.3f")
-        ln_sigma = col1.number_input("Lognormal σ (vol of log 1+r)", min_value=0.0, value=0.12, step=0.01, format="%.2f")
-        n_years_sim = col2.number_input("Years to simulate (for median visuals)", min_value=1, max_value=60, value=30, step=1, key="n_years_sim_adv")
-        n_trials_med = col3.number_input("Trials (for median visuals)", min_value=500, max_value=10000, value=2500, step=100, key="n_trials_med")
+    st.subheader("Distributions (based on your parameters)")
+    rng_vis = np.random.default_rng(seed_val if "seed_val" in globals() and seed_val is not None else None)
+    vis_bro = sample_t_returns(10000, t_mean, t_std, t_df, rng_vis)
+    vis_home = sample_lognormal_returns(10000, ln_mean, ln_std, rng_vis)
+    fig_d1 = px.histogram(x=vis_bro*100, nbins=60, title="Brokerage: t-distribution (annual %)", labels={'x':'% return'})
+    fig_d2 = px.histogram(x=vis_home*100, nbins=60, title="Housing: lognormal (annual %)", labels={'x':'% return'})
+    st.plotly_chart(fig_d1, use_container_width=True)
+    st.plotly_chart(fig_d2, use_container_width=True)
+    st.caption("t-distribution is scaled to your mean & stdev; housing uses a lognormal on gross (1+r) with parameters fitted from your mean & stdev.")
 
+    # Advanced parameters (to retain prior visuals and controls)
+    
     # Years horizon follows the cost comparison if available
     try:
         years_list = cost_comparison_df["Year"].tolist()
@@ -1680,7 +1684,7 @@ with st.container(border=True):
     # Annual amortization basis (ensure annual_df exists)
     if 'annual_df' not in globals():
         try:
-            annual_df = main_annual_df.copy()
+            annual_df = annual_with_extra_df.copy()
         except Exception:
             if 'cost_comparison_df' in locals():
                 annual_df = cost_comparison_df.copy()
@@ -1818,15 +1822,6 @@ with st.container(border=True):
                "Vertical dashed lines mark **purchase** (blue) and **refinance** (orange) years.")
 
 # ---------------- Visuals: Distributions ----------------
-with st.expander("See the distributions (based on your parameters)", expanded=False):
-    rng_vis = np.random.default_rng(seed_val if 'seed_val' in globals() and seed_val is not None else None)
-    vis_bro = sample_t_returns(10000, t_mean, t_std, t_df, rng_vis)
-    vis_home = sample_lognormal_returns(10000, ln_mean, ln_std, rng_vis)
-    fig_d1 = px.histogram(x=vis_bro*100, nbins=60, title="Brokerage: t-distribution (annual %)", labels={'x':'% return'})
-    fig_d2 = px.histogram(x=vis_home*100, nbins=60, title="Housing: lognormal (annual %)", labels={'x':'% return'})
-    st.plotly_chart(fig_d1, use_container_width=True)
-    st.plotly_chart(fig_d2, use_container_width=True)
-    st.caption("t-distribution is scaled to your mean & stdev; housing uses a lognormal on gross (1+r) with parameters fitted from your mean & stdev.")
 
 thick_divider()
 
@@ -1836,6 +1831,7 @@ thick_divider()
 
 section_header("5) Monte Carlo — Probabilistic Outcomes", "")
 st.header("5) Monte Carlo — Probabilistic Outcomes")
+run_mc = st.button("Run Monte Carlo with updated parameters")
 
 with st.container(border=True):
     col1, col2, col3 = st.columns([1,1,1])
@@ -1848,6 +1844,9 @@ with st.container(border=True):
         st.info("Primary chart shows **Buy probability** each year. Rent probability = 1 − Buy.")
     if n_trials > 10000:
         st.warning("High trial count may be slow. Consider using a seed for reproducibility.")
+    if not run_mc:
+        st.caption("Parameters changed or no run yet. Click **Run Monte Carlo with updated parameters** to refresh results.")
+        st.stop()
     try:
         seed_mc = int(seed_text.strip()) if seed_text.strip() else None
     except:
@@ -1989,35 +1988,4 @@ with st.container(border=True):
     fig_box.add_trace(go.Box(y=rent_paths[:, -1], name="Rent — Net Worth (Final Year)"))
     st.plotly_chart(fig_box, use_container_width=True)
 
-    # Median & IQR paths (NEW)
-    buy_med = np.median(buy_paths, axis=0)
-    rent_med = np.median(rent_paths, axis=0)
-    buy_p25 = np.percentile(buy_paths, 25, axis=0)
-    buy_p75 = np.percentile(buy_paths, 75, axis=0)
-    rent_p25 = np.percentile(rent_paths, 25, axis=0)
-    rent_p75 = np.percentile(rent_paths, 75, axis=0)
-
-    fig_median = go.Figure()
-    fig_median.add_trace(go.Scatter(x=years, y=buy_med, mode="lines", name="Buy (median)"))
-    fig_median.add_trace(go.Scatter(x=years, y=rent_med, mode="lines", name="Rent (median)"))
-    # IQR bands (shaded)
-    x_band = np.concatenate([years, years[::-1]])
-    y_buy_band = np.concatenate([buy_p75, buy_p25[::-1]])
-    y_rent_band = np.concatenate([rent_p75, rent_p25[::-1]])
-    fig_median.add_trace(go.Scatter(x=x_band, y=y_buy_band, fill='toself', name="Buy IQR", line=dict(width=0)))
-    fig_median.add_trace(go.Scatter(x=x_band, y=y_rent_band, fill='toself', name="Rent IQR", line=dict(width=0)))
-    st.plotly_chart(fig_median, use_container_width=True)
-
-    # Summary table (median / P25 / P75)
-    with st.expander("Summary table (median / P25 / P75)", expanded=False):
-        df_sum = pd.DataFrame({
-            "Year": years,
-            "Buy (median)": buy_med,
-            "Buy P25": buy_p25,
-            "Buy P75": buy_p75,
-            "Rent (median)": rent_med,
-            "Rent P25": rent_p25,
-            "Rent P75": rent_p75
-        })
-        st.dataframe(df_sum.style.format({"Buy (median)":"${:,.0f}","Buy P25":"${:,.0f}","Buy P75":"${:,.0f}",
-                                          "Rent (median)":"${:,.0f}","Rent P25":"${:,.0f}","Rent P75":"${:,.0f}"}), hide_index=True)
+    
