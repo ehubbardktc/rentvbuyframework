@@ -1059,6 +1059,67 @@ cost_comparison_df['Asset % Difference (Buy vs Rent)'] = np.where(
 )
 
 # Display
+
+
+# Savings from Refinancing
+if show_refinance and refi_start_date:
+    st.header("Savings from Refinancing")
+    # Build aligned annual views with and without refi
+    _aw = annual_with_extra_df.copy()
+    _aw["Year"] = _aw["Date"].dt.year
+    _aw["Cum Interest"] = _aw["Interest"].cumsum()
+    _aw["Cum PMI"] = _aw["PMI"].cumsum() if "PMI" in _aw.columns else 0.0
+
+    _nr = no_refi_annual_df.copy()
+    _nr["Year"] = _nr["Date"].dt.year
+    _nr["Cum Interest"] = _nr["Interest"].cumsum()
+    _nr["Cum PMI"] = _nr["PMI"].cumsum() if "PMI" in _nr.columns else 0.0
+
+    _m = _aw.merge(_nr[["Year","Cum Interest","Cum PMI"]].rename(columns={"Cum Interest":"Cum Interest (No Refi)","Cum PMI":"Cum PMI (No Refi)"}), on="Year", how="inner")
+    _m["Interest Saved (Cum)"] = (_m["Cum Interest (No Refi)"] - _m["Cum Interest"]).clip(lower=-1e12, upper=1e12)
+    _m["PMI Saved (Cum)"] = (_m["Cum PMI (No Refi)"] - _m["Cum PMI"]).clip(lower=-1e12, upper=1e12)
+    _m["Interest Saved (Year)"] = _m["Interest Saved (Cum)"].diff().fillna(_m["Interest Saved (Cum)"])
+    _m["PMI Saved (Year)"] = _m["PMI Saved (Cum)"].diff().fillna(_m["PMI Saved (Cum)"])
+    _m["Total Saved (Cum)"] = _m["Interest Saved (Cum)"] + _m["PMI Saved (Cum)"]
+
+    # Cumulative refi cost (points + closing costs), shown starting at refi year
+    _total_refi_cost = float(refi_costs or 0) + float(refi_points_cost or 0)
+    _m["Cumulative Refi Cost"] = np.where(_m["Year"] >= refi_start_date.year, _total_refi_cost, 0.0)
+
+    tabs_refi = st.tabs(["By Year", "Cumulative"])
+    with tabs_refi[0]:
+        fig_refi_y = go.Figure()
+        fig_refi_y.add_trace(go.Scatter(x=_m["Year"], y=_m["Interest Saved (Year)"], mode="lines+markers", name="Interest Saved (Year)"))
+        fig_refi_y.add_trace(go.Scatter(x=_m["Year"], y=_m["PMI Saved (Year)"], mode="lines+markers", name="PMI Saved (Year)", yaxis="y2"))
+        # Optionally show point refi cost at refi year (as line that steps up once)
+        fig_refi_y.add_trace(go.Scatter(x=_m["Year"], y=np.where(_m["Year"]==refi_start_date.year, _total_refi_cost, 0.0), mode="lines+markers", name="Refi Cost (Upfront)", yaxis="y2"))
+        fig_refi_y.update_layout(
+            plot_bgcolor="rgb(245, 245, 245)", paper_bgcolor="rgb(245, 245, 245)",
+            xaxis_title="Year", yaxis_title="Saved ($)",
+            yaxis2=dict(overlaying="y", side="right", title="PMI / Cost ($)"),
+            legend=dict(yanchor="top", y=1.1, xanchor="left", x=0)
+        )
+        if refi_start_date:
+            fig_refi_y.add_vline(x=refi_start_date.year, line_dash="dash", line_color="orange", annotation_text="Refinance")
+        fig_refi_y.add_hline(y=0, line_dash="dash", line_color="black")
+        st.plotly_chart(fig_refi_y, use_container_width=True)
+
+    with tabs_refi[1]:
+        fig_refi_c = go.Figure()
+        fig_refi_c.add_trace(go.Scatter(x=_m["Year"], y=_m["Total Saved (Cum)"], mode="lines+markers", name="Total Saved (Cum)"))
+        fig_refi_c.add_trace(go.Scatter(x=_m["Year"], y=_m["Cumulative Refi Cost"], mode="lines+markers", name="Cumulative Refi Cost", yaxis="y2"))
+        fig_refi_c.update_layout(
+            plot_bgcolor="rgb(245, 245, 245)", paper_bgcolor="rgb(245, 245, 245)",
+            xaxis_title="Year", yaxis_title="Saved ($)",
+            yaxis2=dict(overlaying="y", side="right", title="Cumulative Cost ($)"),
+            legend=dict(yanchor="top", y=1.1, xanchor="left", x=0)
+        )
+        if refi_start_date:
+            fig_refi_c.add_vline(x=refi_start_date.year, line_dash="dash", line_color="orange", annotation_text="Refinance")
+        fig_refi_c.add_hline(y=0, line_dash="dash", line_color="black")
+        st.plotly_chart(fig_refi_c, use_container_width=True)
+
+
 thick_divider()
 st.header("Mortgage Metrics")
 with st.container(border=True):
