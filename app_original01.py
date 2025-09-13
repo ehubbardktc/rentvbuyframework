@@ -178,6 +178,168 @@ def thick_divider():
 
 # Page Config
 st.set_page_config(page_title="Rent vs. Buy Decision Support Framework", layout="wide")
+
+
+# --- UI Theme Helpers (injected early to avoid NameError) ---
+def apply_theme():
+    import streamlit as st
+    st.markdown(
+        """
+<style>
+:root{
+  --bg:#ffffff;
+  --panel:#fafafa;
+  --ink:#0f172a;
+  --muted:#64748b;
+  --border:#e5e7eb;
+  --card:#f8fafc;
+  --primary:#4C78A8;   /* Buying */
+  --secondary:#9C755F; /* Renting */
+  --accent:#6366F1;    /* Accent */
+}
+html, body, .main { background: var(--bg); }
+h1, h2, h3 { letter-spacing: -0.01em; color: var(--ink); }
+
+/* Slightly tighter spacing */
+.block-container { padding-top: .6rem !important; }
+
+/* Cards */
+div[data-testid="stContainer"]{ border-radius: 14px; }
+
+/* Neutral alerts */
+.stAlert { background:#f8fafc !important; border:1px solid var(--border) !important; color:var(--ink) !important; }
+
+/* Buttons */
+.stButton>button, .stDownloadButton>button {
+  background: var(--accent) !important; color:white !important; border:0 !important; border-radius:10px !important; padding:.55rem .9rem !important;
+}
+.stButton>button:hover, .stDownloadButton>button:hover { filter: brightness(.95); }
+
+/* Tabs */
+.stTabs [data-baseweb="tab-list"] { gap:.5rem; }
+.stTabs [data-baseweb="tab"] { background: var(--card); border:1px solid var(--border); border-radius:999px; padding:.35rem .8rem; }
+.stTabs [aria-selected="true"] { border-color: var(--accent); color: var(--accent); }
+
+/* Metrics */
+[data-testid="metric-container"] { padding:8px 10px; border:1px solid var(--border); border-radius:12px; background:var(--panel); }
+
+/* Chips & badges */
+.chips { display:flex; gap:.4rem; align-items:center; flex-wrap:wrap; margin:.1rem 0 .6rem 0; }
+.chip { padding:.18rem .6rem; border-radius:999px; font-size:.80rem; border:1px solid var(--border); color:var(--ink); background:#f8fafc; }
+.chip.det { background:#e0f2fe; border-color:#bae6fd; color:#075985; }
+.chip.prob { background:#eef2ff; border-color:#c7d2fe; color:#3730a3; }
+.chip.buy { background:#edf2f8; border-color:#c9d7e8; color:#244667; }
+.chip.rent { background:#f6f1ee; border-color:#e0d5cd; color:#5b4639; }
+.badge { display:inline-block; padding:.25rem .6rem; border-radius:8px; background:#eef2ff; border:1px solid #cbd5e1; font-weight:600; font-size:.85rem; color:#334155; margin-right:.4rem; }
+
+/* Full-card left-edge tint */
+.card-tint { position: relative; background: var(--panel); border:1px solid var(--border); border-radius:14px; padding: .9rem .95rem; }
+.card-tint.buy { background: linear-gradient(90deg, rgba(76,120,168,0.10) 0px, rgba(76,120,168,0.04) 220px, transparent 360px), var(--panel); }
+.card-tint.rent { background: linear-gradient(90deg, rgba(156,117,95,0.10) 0px, rgba(156,117,95,0.045) 220px, transparent 360px), var(--panel); }
+.card-tint.buy::before, .card-tint.rent::before { content:""; position:absolute; left:0; top:0; bottom:0; width:6px; border-top-left-radius:14px; border-bottom-left-radius:14px; }
+.card-tint.buy::before { background: var(--primary); }
+.card-tint.rent::before { background: var(--secondary); }
+
+/* Sticky navbar */
+.navbar { position: sticky; top: 0; z-index: 60; background: rgba(255,255,255,.88); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); border-bottom: 1px solid var(--border); padding: .55rem .25rem; margin-bottom:.6rem; }
+.navbar a { text-decoration:none; color: var(--muted); margin-right: 14px; font-weight:600;}
+.navbar a:hover { color: var(--ink); }
+</style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+def section_subtitle(text: str):
+    import streamlit as st
+    st.markdown(f"<div class='section-subtitle' style='color:var(--muted);margin-top:-.25rem;margin-bottom:.6rem'>{text}</div>", unsafe_allow_html=True)
+
+apply_theme()
+# ===== UI Helpers (Theme + Plot Styling) =====
+def apply_theme():
+    st.markdown(
+        """
+<style>
+:root{
+  --bg:#ffffff;
+  --panel:#fafafa;
+  --ink:#0f172a;
+  --muted:#64748b;
+  --border:#e5e7eb;
+  --card:#f8fafc;
+  --primary:#4C78A8;   /* Buying */
+  --secondary:#9C755F; /* Renting */
+  --accent:#6366F1;    /* Accent */
+}
+
+/* Background & typography */
+.stApp, html, body { background: var(--bg); }
+h1, h2, h3 { letter-spacing: -0.01em; color: var(--ink); }
+
+/* Block spacing (slightly tighter) */
+section.main > div { padding-top: 6px !important; }
+.block-container { padding-top: .5rem !important; }
+
+/* Cards */
+div[data-testid="stContainer"]{
+  border-radius: 14px;
+}
+
+/* Neutral alerts (no yellows/reds) */
+.stAlert {
+  background: #f8fafc !important;
+  border: 1px solid var(--border) !important;
+  color: var(--ink) !important;
+}
+
+/* Buttons */
+.stButton>button, .stDownloadButton>button {
+  background: var(--accent) !important;
+  color: white !important;
+  border: 0 !important; border-radius: 10px !important;
+  padding: .55rem .9rem !important;
+}
+.stButton>button:hover, .stDownloadButton>button:hover { filter: brightness(.95); }
+
+/* Tabs */
+.stTabs [data-baseweb="tab-list"] { gap:.5rem; }
+.stTabs [data-baseweb="tab"] { background: var(--card); border:1px solid var(--border); border-radius:999px; padding:.35rem .8rem; }
+.stTabs [aria-selected="true"] { border-color: var(--accent); color: var(--accent); }
+
+/* Metrics */
+[data-testid="metric-container"] {
+  padding: 8px 10px; border: 1px solid var(--border);
+  border-radius: 12px; background: var(--panel);
+}
+
+/* Subtle section subtitles */
+.section-subtitle { color: var(--muted); margin-top: -.25rem; margin-bottom:.6rem; }
+
+/* Full-card left-edge tint */
+.card-tint { position: relative; background: var(--panel); border:1px solid var(--border); border-radius:14px; padding: .75rem .9rem; }
+.card-tint.buy::before, .card-tint.rent::before{
+  content:""; position:absolute; left:0; top:0; bottom:0; width:6px; border-top-left-radius:14px; border-bottom-left-radius:14px;
+}
+.card-tint.buy::before{ background: var(--primary); }
+.card-tint.rent::before{ background: var(--secondary); }
+
+/* Reduce vertical whitespace between stacked elements */
+.element-container { margin-bottom: .6rem !important; }
+</style>
+        """, unsafe_allow_html=True
+    )
+
+def section_subtitle(text:str):
+    st.markdown(f"<div class='section-subtitle'>{text}</div>", unsafe_allow_html=True)
+
+def style_plot(fig, legend_y=1.08):
+    fig.update_layout(
+        margin=dict(t=40, r=20, b=40, l=48),
+        plot_bgcolor="rgb(248,250,252)",
+        paper_bgcolor="rgb(248,250,252)",
+        hovermode="x unified",
+        legend=dict(yanchor="top", y=legend_y, xanchor="left", x=0)
+    )
+    return fig
 st.title("Rent vs. Buy Decision Support Framework")
 
 # Instructions
@@ -232,6 +394,7 @@ for key, value in BASE_DEFAULTS.items():
 # Buying Parameters
 st.subheader("Buying Parameters")
 with st.container(border=True):
+    st.markdown("<div class='card-tint buy'>", unsafe_allow_html=True)
     st.markdown("### Purchase and Loan Details")
     col1, col2 = st.columns(2)
     with col1:
@@ -331,9 +494,9 @@ if "Interval (Years)" in extra_payments.columns:
 
 
 # Advanced Homeownership Options
-st.subheader("Advanced Homeownership Options")
-with st.expander("Refinance", expanded=False):
-    st.markdown("### Refinance Options")
+
+    
+    st.markdown("### Refinance (Optional)")
     show_refinance = st.checkbox("Model a Refinance?", value=False, help="Include a refinance scenario in calculations.")
     refi_rate = None
     refi_term_years = None
@@ -345,10 +508,10 @@ with st.expander("Refinance", expanded=False):
     refi_rate_schedule = None
     refi_periods_per_year = None
     refi_buy_points = False
-    refi_points = 0
+    refi_points = 0.0
     refi_discount_per_point = 0.25
     refi_points_cost_method = "Add to Loan Balance"
-    refi_points_cost = 0
+    refi_points_cost = 0.0
     refi_effective_rate = None
 
     if show_refinance:
@@ -379,7 +542,7 @@ with st.expander("Refinance", expanded=False):
                 st.metric("Refinance Points Cost", f"${refi_points_cost:,.0f}")
 
         if refi_mortgage_type == "Variable":
-            st.markdown("### Refinance Variable Rate Schedule")
+            st.markdown("#### Refinance Variable Rate Schedule")
             default_refi_schedule = pd.DataFrame({"Year": [1, 5, 10], "Rate (%)": [refi_effective_rate, refi_effective_rate + 1.5, refi_effective_rate + 2.0]})
             refi_rate_schedule = st.data_editor(
                 default_refi_schedule,
@@ -393,10 +556,10 @@ with st.expander("Refinance", expanded=False):
         else:
             refi_rate_schedule = pd.DataFrame({"Year": [1], "Rate (%)": [refi_effective_rate]})
 
-# Expense Info Label
+    st.markdown("</div>", unsafe_allow_html=True)
 st.subheader("Homeownership Costs")
 st.markdown('<div class="highlight-box">Recurring Costs: Property taxes, insurance, maintenance, HOA. These grow annually based on your inputs.</div>', unsafe_allow_html=True)
-st.markdown("")
+
 st.markdown('<div class="highlight-box">One-Time Costs: Closing costs, points (if paid upfront), emergency repairs in the specified year.</div>', unsafe_allow_html=True)
 
 # Ongoing Expenses
@@ -405,7 +568,7 @@ with st.expander("Homeownership Expenses (click to expand)", expanded=False):
     with st.container(border=True):
         col1, col2 = st.columns(2)
         with col1:
-            st.markdown("**Recurring Expenses**")
+            section_subtitle("Recurring (Annual)")
             st.markdown("Enter annual recurring expenses for homeownership.")
             default_property_expenses = pd.DataFrame({
                 "Category": ["Property Taxes", "Home Insurance", "Routine Maintenance", "HOA Fees"],
@@ -422,7 +585,7 @@ with st.expander("Homeownership Expenses (click to expand)", expanded=False):
             )
 
         with col2:
-            st.markdown("**One-Time Expenses**")
+            section_subtitle("One-time")
             st.markdown("Enter one-time emergency repair costs.")
             default_emergency_expenses = pd.DataFrame({
                 "Category": ["Appliance Replacement", "Septic Repair", "Roof Repair"],
@@ -455,17 +618,18 @@ with st.container(border=True):
 
 # Rental Parameters
 st.subheader("Rental Parameters")
-st.markdown("**Clear separation from Buying parameters** — inputs below apply to renting only.")
+section_subtitle("Parameters below apply only to renting.")
 with st.container(border=True):
+    st.markdown("<div class='card-tint rent'>", unsafe_allow_html=True)
     col1, col2 = st.columns(2)
     with col1:
-        st.markdown("#### Recurring (Monthly/Annual)")
+        section_subtitle("Recurring (Monthly/Annual)")
         cost_of_rent = st.number_input(f"Initial Monthly Rent ({purchase_year}) ($)", value=float(st.session_state["cost_of_rent"]), step=50.0, min_value=0.0, help="Monthly rent excluding utilities and fees.")
         annual_rent_increase = st.number_input("Annual Rent Increase (%)", value=st.session_state["annual_rent_increase"], step=0.1, min_value=0.0, help="Expected annual increase in rent.")
         renters_insurance = st.number_input("Annual Renters' Insurance ($)", value=float(st.session_state["renters_insurance"]), step=50.0, min_value=0.0, help="Yearly cost of renters' insurance.")
         security_deposit = st.number_input("Security Deposit ($)", value=float(st.session_state["security_deposit"]), step=100.0, min_value=0.0, help="One-time deposit, invested as opportunity cost.")
     with col2:
-        st.markdown("#### One-time / Per-lease")
+        section_subtitle("One-time / Per-lease")
         rental_utilities = st.number_input("Annual Rental Utilities ($)", value=float(st.session_state["rental_utilities"]), step=100.0, min_value=0.0, help="Yearly utility costs for renting.")
         pet_fee = st.number_input("Pet Fee/Deposit ($)", value=float(st.session_state["pet_fee"]), step=50.0, min_value=0.0, help="One-time or annual pet fee, depending on frequency.")
         pet_fee_frequency = st.selectbox("Pet Fee Frequency", ["One-time", "Annual"], index=0, help="Whether pet fee is one-time or annual.")
@@ -474,6 +638,8 @@ with st.container(border=True):
         parking_fee = st.number_input("Monthly Parking Fee ($)", value=float(st.session_state["parking_fee"]), step=10.0, min_value=0.0, help="Monthly parking cost.")
 
 # Investment and Evaluation Period
+
+    st.markdown("</div>", unsafe_allow_html=True)
 st.subheader("Investment and Analysis Period")
 with st.container(border=True):
     col1, col2 = st.columns(2)
@@ -1100,8 +1266,9 @@ if show_refinance and refi_start_date:
             legend=dict(yanchor="top", y=1.1, xanchor="left", x=0)
         )
         if refi_start_date:
-            fig_refi_y.add_vline(x=refi_start_date.year, line_dash="dash", line_color="orange", annotation_text="Refinance")
+            fig_refi_y.add_vline(x=refi_start_date.year, line_dash="dash", line_color="#6366F1", annotation_text="Refinance")
         fig_refi_y.add_hline(y=0, line_dash="dash", line_color="black")
+        style_plot(fig_refi_y)
         st.plotly_chart(fig_refi_y, use_container_width=True)
 
     with tabs_refi[1]:
@@ -1115,8 +1282,9 @@ if show_refinance and refi_start_date:
             legend=dict(yanchor="top", y=1.1, xanchor="left", x=0)
         )
         if refi_start_date:
-            fig_refi_c.add_vline(x=refi_start_date.year, line_dash="dash", line_color="orange", annotation_text="Refinance")
+            fig_refi_c.add_vline(x=refi_start_date.year, line_dash="dash", line_color="#6366F1", annotation_text="Refinance")
         fig_refi_c.add_hline(y=0, line_dash="dash", line_color="black")
+        style_plot(fig_refi_c)
         st.plotly_chart(fig_refi_c, use_container_width=True)
 
 
@@ -1214,10 +1382,11 @@ with tab1:
     )
     if show_refinance and refi_start_date:
         refi_timestamp = pd.Timestamp(refi_start_date).timestamp() * 1000
-        fig_amort_payment.add_vline(x=refi_timestamp, line_dash="dash", line_color="orange", annotation_text="Refinance")
+        fig_amort_payment.add_vline(x=refi_timestamp, line_dash="dash", line_color="#6366F1", annotation_text="Refinance")
     if payoff_year and eval_start_year <= payoff_year <= eval_end_year:
         payoff_timestamp = pd.Timestamp(f"{payoff_year}-01-01").timestamp() * 1000
         fig_amort_payment.add_vline(x=payoff_timestamp, line_dash="dash", line_color="purple", annotation_text="Payoff")
+    style_plot(fig_amort_payment)
     st.plotly_chart(fig_amort_payment, use_container_width=True)
 
 with tab2:
@@ -1236,9 +1405,10 @@ with tab2:
         legend=dict(yanchor="top", y=1.1, xanchor="left", x=0)
     )
     if show_refinance and refi_start_date:
-        fig_amort_year.add_vline(x=refi_start_date.year, line_dash="dash", line_color="orange", annotation_text="Refinance")
+        fig_amort_year.add_vline(x=refi_start_date.year, line_dash="dash", line_color="#6366F1", annotation_text="Refinance")
     if payoff_year and eval_start_year <= payoff_year <= eval_end_year:
         fig_amort_year.add_vline(x=payoff_year, line_dash="dash", line_color="purple", annotation_text="Payoff")
+    style_plot(fig_amort_year)
     st.plotly_chart(fig_amort_year, use_container_width=True)
 
 with tab3:
@@ -1259,9 +1429,10 @@ with tab3:
         legend=dict(yanchor="top", y=1.1, xanchor="left", x=0)
     )
     if show_refinance and refi_start_date:
-        fig_amort_cum.add_vline(x=refi_start_date.year, line_dash="dash", line_color="orange", annotation_text="Refinance")
+        fig_amort_cum.add_vline(x=refi_start_date.year, line_dash="dash", line_color="#6366F1", annotation_text="Refinance")
     if payoff_year and eval_start_year <= payoff_year <= eval_end_year:
         fig_amort_cum.add_vline(x=payoff_year, line_dash="dash", line_color="purple", annotation_text="Payoff")
+    style_plot(fig_amort_cum)
     st.plotly_chart(fig_amort_cum, use_container_width=True)
 
 st.divider()  # divider between Mortgage Metrics and Savings Comparison
@@ -1288,6 +1459,7 @@ with tab_y:
         xaxis_title='Year', yaxis_title='Interest Saved ($)', yaxis2=dict(overlaying='y', side='right', title='PMI Saved ($)'),
         legend=dict(yanchor="top", y=1.1, xanchor="left", x=0)
     )
+    style_plot(fig_sy)
     st.plotly_chart(fig_sy, use_container_width=True)
 
 with tab_c:
@@ -1299,6 +1471,7 @@ with tab_c:
         xaxis_title='Year', yaxis_title='Interest Saved ($)', yaxis2=dict(overlaying='y', side='right', title='PMI Saved ($)'),
         legend=dict(yanchor="top", y=1.1, xanchor="left", x=0)
     )
+    style_plot(fig_sc)
     st.plotly_chart(fig_sc, use_container_width=True)
 
 
@@ -1343,6 +1516,7 @@ if buy_points and points > 0:
         legend=dict(yanchor="top", y=1.1, xanchor="left", x=0)
     )
     fig_pts.add_hline(y=0, line_dash="dash", line_color="black")
+    style_plot(fig_pts)
     st.plotly_chart(fig_pts, use_container_width=True)
 
 if payment_frequency == "Biweekly":
@@ -1364,10 +1538,11 @@ if payment_frequency == "Biweekly":
         legend=dict(yanchor="top", y=1.1, xanchor="left", x=0)
     )
     if show_refinance and refi_start_date:
-        fig_saved_bi.add_vline(x=refi_start_date.year, line_dash="dash", line_color="orange", annotation_text="Refinance")
+        fig_saved_bi.add_vline(x=refi_start_date.year, line_dash="dash", line_color="#6366F1", annotation_text="Refinance")
     if payoff_year and eval_start_year <= payoff_year <= eval_end_year:
         fig_saved_bi.add_vline(x=payoff_year, line_dash="dash", line_color="purple", annotation_text="Payoff")
     fig_saved_bi.add_hline(y=0, line_dash='dash', line_color='black')
+    style_plot(fig_saved_bi)
     st.plotly_chart(fig_saved_bi, use_container_width=True)
 
 
@@ -1375,7 +1550,7 @@ thick_divider()
 
 st.header("Evaluation Year Selection")
 st.markdown('<div class="highlight-box">Select a year to analyze asset and cost metrics. This selection will carry through the 2.) Assets and 3.) Costs sections.</div>', unsafe_allow_html=True)
-st.markdown(" ")
+
 selected_year = st.selectbox(
     "Select Evaluation Year",
     options=list(range(eval_start_year, eval_end_year + 1)),
@@ -1480,11 +1655,12 @@ with st.container(border=True):
             legend=dict(yanchor="top", y=1.1, xanchor="left", x=0)
         )
         if show_refinance and refi_start_date:
-            fig_assets.add_vline(x=refi_start_date.year, line_dash="dash", line_color="orange", annotation_text="Refinance")
+            fig_assets.add_vline(x=refi_start_date.year, line_dash="dash", line_color="#6366F1", annotation_text="Refinance")
         if purchase_year and eval_start_year <= purchase_year <= eval_end_year:
             fig_assets.add_vline(x=purchase_year, line_dash="dash", line_color="blue", annotation_text="Purchase")
         if payoff_year and eval_start_year <= payoff_year <= eval_end_year:
             fig_assets.add_vline(x=payoff_year, line_dash="dash", line_color="purple", annotation_text="Payoff")
+        style_plot(fig_assets)
         st.plotly_chart(fig_assets, use_container_width=True)
 
     with tab_cumulative:
@@ -1500,11 +1676,12 @@ with st.container(border=True):
             legend=dict(yanchor="top", y=1.1, xanchor="left", x=0)
         )
         if show_refinance and refi_start_date:
-            fig_cum_assets.add_vline(x=refi_start_date.year, line_dash="dash", line_color="orange", annotation_text="Refinance")
+            fig_cum_assets.add_vline(x=refi_start_date.year, line_dash="dash", line_color="#6366F1", annotation_text="Refinance")
         if purchase_year and eval_start_year <= purchase_year <= eval_end_year:
             fig_cum_assets.add_vline(x=purchase_year, line_dash="dash", line_color="blue", annotation_text="Purchase")
         if payoff_year and eval_start_year <= payoff_year <= eval_end_year:
             fig_cum_assets.add_vline(x=payoff_year, line_dash="dash", line_color="purple", annotation_text="Payoff")
+        style_plot(fig_cum_assets)
         st.plotly_chart(fig_cum_assets, use_container_width=True)
 
     with tab_pct_diff:
@@ -1521,12 +1698,13 @@ with st.container(border=True):
             showlegend=False
         )
         if show_refinance and refi_start_date:
-            fig_asset_pct_diff.add_vline(x=refi_start_date.year, line_dash="dash", line_color="orange", annotation_text="Refinance")
+            fig_asset_pct_diff.add_vline(x=refi_start_date.year, line_dash="dash", line_color="#6366F1", annotation_text="Refinance")
         if purchase_year and eval_start_year <= purchase_year <= eval_end_year:
             fig_asset_pct_diff.add_vline(x=purchase_year, line_dash="dash", line_color="blue", annotation_text="Purchase")
         if payoff_year and eval_start_year <= payoff_year <= eval_end_year:
             fig_asset_pct_diff.add_vline(x=payoff_year, line_dash="dash", line_color="purple", annotation_text="Payoff")
         fig_asset_pct_diff.add_hline(y=0, line_dash='dot', opacity=0.5)
+        style_plot(fig_asset_pct_diff)
         st.plotly_chart(fig_asset_pct_diff, use_container_width=True)
         st.markdown("**Note**: Zero values indicate no renting assets for that year, preventing division by zero.")
 
@@ -1587,11 +1765,12 @@ with st.container(border=True):
             legend=dict(yanchor="top", y=1.1, xanchor="left", x=0)
         )
         if show_refinance and refi_start_date:
-            fig_costs.add_vline(x=refi_start_date.year, line_dash="dash", line_color="orange", annotation_text="Refinance")
+            fig_costs.add_vline(x=refi_start_date.year, line_dash="dash", line_color="#6366F1", annotation_text="Refinance")
         if purchase_year and eval_start_year <= purchase_year <= eval_end_year:
             fig_costs.add_vline(x=purchase_year, line_dash="dash", line_color="blue", annotation_text="Purchase")
         if payoff_year and eval_start_year <= payoff_year <= eval_end_year:
             fig_costs.add_vline(x=payoff_year, line_dash="dash", line_color="purple", annotation_text="Payoff")
+        style_plot(fig_costs)
         st.plotly_chart(fig_costs, use_container_width=True)
 
     with tab_cum:
@@ -1607,11 +1786,12 @@ with st.container(border=True):
             legend=dict(yanchor="top", y=1.1, xanchor="left", x=0)
         )
         if show_refinance and refi_start_date:
-            fig_cum_costs.add_vline(x=refi_start_date.year, line_dash="dash", line_color="orange", annotation_text="Refinance")
+            fig_cum_costs.add_vline(x=refi_start_date.year, line_dash="dash", line_color="#6366F1", annotation_text="Refinance")
         if purchase_year and eval_start_year <= purchase_year <= eval_end_year:
             fig_cum_costs.add_vline(x=purchase_year, line_dash="dash", line_color="blue", annotation_text="Purchase")
         if payoff_year and eval_start_year <= payoff_year <= eval_end_year:
             fig_cum_costs.add_vline(x=payoff_year, line_dash="dash", line_color="purple", annotation_text="Payoff")
+        style_plot(fig_cum_costs)
         st.plotly_chart(fig_cum_costs, use_container_width=True)
 
     with tab_pct_diff:
@@ -1628,12 +1808,13 @@ with st.container(border=True):
             showlegend=False
         )
         if show_refinance and refi_start_date:
-            fig_cost_pct_diff.add_vline(x=refi_start_date.year, line_dash="dash", line_color="orange", annotation_text="Refinance")
+            fig_cost_pct_diff.add_vline(x=refi_start_date.year, line_dash="dash", line_color="#6366F1", annotation_text="Refinance")
         if purchase_year and eval_start_year <= purchase_year <= eval_end_year:
             fig_cost_pct_diff.add_vline(x=purchase_year, line_dash="dash", line_color="blue", annotation_text="Purchase")
         if payoff_year and eval_start_year <= payoff_year <= eval_end_year:
             fig_cost_pct_diff.add_vline(x=payoff_year, line_dash="dash", line_color="purple", annotation_text="Payoff")
         fig_cost_pct_diff.add_hline(y=0, line_dash='dot', opacity=0.5)
+        style_plot(fig_cost_pct_diff)
         st.plotly_chart(fig_cost_pct_diff, use_container_width=True)
         st.markdown("**Note**: Zero values indicate no renting costs for that year, preventing division by zero.")
 
@@ -1665,11 +1846,12 @@ with st.container(border=True):
             legend=dict(yanchor="top", y=1.1, xanchor="left", x=0)
         )
         if show_refinance and refi_start_date:
-            fig_buy_cost_types.add_vline(x=refi_start_date.year, line_dash="dash", line_color="orange", annotation_text="Refinance")
+            fig_buy_cost_types.add_vline(x=refi_start_date.year, line_dash="dash", line_color="#6366F1", annotation_text="Refinance")
         if purchase_year and eval_start_year <= purchase_year <= eval_end_year:
             fig_buy_cost_types.add_vline(x=purchase_year, line_dash="dash", line_color="blue", annotation_text="Purchase")
         if payoff_year and eval_start_year <= payoff_year <= eval_end_year:
             fig_buy_cost_types.add_vline(x=payoff_year, line_dash="dash", line_color="purple", annotation_text="Payoff")
+        style_plot(fig_buy_cost_types)
         st.plotly_chart(fig_buy_cost_types, use_container_width=True)
 
     with col2:
@@ -1683,6 +1865,7 @@ with st.container(border=True):
             xaxis_title='Year', yaxis_title='Cost ($)',
             legend=dict(yanchor="top", y=1.1, xanchor="left", x=0)
         )
+        style_plot(fig_rent_cost_types)
         st.plotly_chart(fig_rent_cost_types, use_container_width=True)
 
     
@@ -1698,30 +1881,6 @@ with st.expander("Detailed Costs Breakdown by Year (Rent & Buy)", expanded=False
             .set_properties(subset=rent_cols, **{'background-color': '#f5f5f5'}),
         hide_index=True
     )
-
-
-# --- Export: Download all CSVs as a single ZIP ---
-with st.expander("Download All Data (ZIP)", expanded=False):
-    import io, zipfile
-    zbuf = io.BytesIO()
-    with zipfile.ZipFile(zbuf, "w", zipfile.ZIP_DEFLATED) as zf:
-        try:
-            zf.writestr("amortization_annual.csv", annual_with_extra_df.to_csv(index=False))
-            zf.writestr("amortization_monthly.csv", monthly_with_extra_df.to_csv(index=False))
-        except Exception:
-            pass
-        try:
-            sy_year_df = annual_with_extra[['Year','Interest Saved (Year)','PMI Saved (Year)']].copy()
-            sy_cum_df  = annual_with_extra[['Year','Interest Saved (Cum)','PMI Saved (Cum)']].copy()
-            zf.writestr("savings_by_year.csv", sy_year_df.to_csv(index=False))
-            zf.writestr("savings_cumulative.csv", sy_cum_df.to_csv(index=False))
-        except Exception:
-            pass
-        try:
-            zf.writestr("cost_comparison_full.csv", cost_comparison_df.to_csv(index=False))
-        except Exception:
-            pass
-    st.download_button("Download ZIP", data=zbuf.getvalue(), file_name="rent_vs_buy_export.zip", mime="application/zip")
 
 thick_divider()
 
@@ -1752,6 +1911,7 @@ with st.container(border=True):
     nav_long = pd.concat(long_df, ignore_index=True) if long_df else pd.DataFrame(columns=["Year","Value","Series"])
     fig_nav = px.line(nav_long, x="Year", y="Value", color="Series", markers=True)
     fig_nav.update_layout(plot_bgcolor="rgb(245,245,245)", paper_bgcolor="rgb(245,245,245)")
+    style_plot(fig_nav)
     st.plotly_chart(fig_nav, use_container_width=True)
 
 
@@ -1787,7 +1947,9 @@ with st.container(border=True):
     vis_home = sample_lognormal_returns(10000, ln_mean, ln_std, rng_vis)
     fig_d1 = px.histogram(x=vis_bro*100, nbins=60, title="Brokerage: t-distribution (annual %)", labels={'x':'% return'})
     fig_d2 = px.histogram(x=vis_home*100, nbins=60, title="Housing: lognormal (annual %)", labels={'x':'% return'})
+    style_plot(fig_d1)
     st.plotly_chart(fig_d1, use_container_width=True)
+    style_plot(fig_d2)
     st.plotly_chart(fig_d2, use_container_width=True)
     st.caption("t-distribution is scaled to your mean & stdev; housing uses a lognormal on gross (1+r) with parameters fitted from your mean & stdev.")
 
@@ -1983,9 +2145,10 @@ with st.container(border=True):
     fig_one.add_trace(go.Scatter(x=x, y=buy_nw_path, mode="lines", name="Buy — Net Worth (stochastic)"))
     fig_one.add_trace(go.Scatter(x=x, y=rent_nw_path, mode="lines", name="Rent — Net Worth (stochastic)"))
     if 'refi_start_date' in globals() and refi_start_date:
-        fig_one.add_vline(x=refi_start_date.year, line_dash="dash", line_color="orange")
+        fig_one.add_vline(x=refi_start_date.year, line_dash="dash", line_color="#6366F1")
     if 'purchase_year' in globals():
         fig_one.add_vline(x=purchase_year, line_dash="dash", line_color="blue")
+    style_plot(fig_one)
     st.plotly_chart(fig_one, use_container_width=True)
 
     st.caption("Monthly payment logic (from Sections 1–3) reflects points buy-downs and any refinance you specified. "
@@ -2139,9 +2302,10 @@ with st.container(border=True):
     fig_prob.add_hline(y=0.5, line_dash='dot', opacity=0.5)
     fig_prob.update_yaxes(title='Probability (0–1)', range=[0,1])
     if 'refi_start_date' in globals() and refi_start_date:
-        fig_prob.add_vline(x=refi_start_date.year, line_dash="dash", line_color="orange")
+        fig_prob.add_vline(x=refi_start_date.year, line_dash="dash", line_color="#6366F1")
     if 'purchase_year' in globals():
         fig_prob.add_vline(x=purchase_year, line_dash="dash", line_color="blue")
+    style_plot(fig_prob)
     st.plotly_chart(fig_prob, use_container_width=True)
     st.caption("We plot **Buy** probability for clarity. **Rent** probability is `1 − Buy`.")
 
@@ -2152,12 +2316,12 @@ with st.container(border=True):
         "% Rent Wins": (rent_paths > buy_paths).mean(axis=0) * 100.0
     })
     fig_wins = px.line(df_wins.melt(id_vars=["Year"], var_name="Scenario", value_name="Percent"), x="Year", y="Percent", color="Scenario", markers=True, title="% of Trials Each Scenario Wins (per year)")
+    style_plot(fig_wins)
     st.plotly_chart(fig_wins, use_container_width=True)
 
     # Box & whisker plots of final-year net worth (from earlier version)
     fig_box = go.Figure()
     fig_box.add_trace(go.Box(y=buy_paths[:, -1], name="Buy — Net Worth (Final Year)"))
     fig_box.add_trace(go.Box(y=rent_paths[:, -1], name="Rent — Net Worth (Final Year)"))
+    style_plot(fig_box)
     st.plotly_chart(fig_box, use_container_width=True)
-
-    
