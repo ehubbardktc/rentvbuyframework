@@ -446,7 +446,7 @@ with col_buy:
                 refi_start_date = st.date_input("Refinance Start Date", value=pd.to_datetime(f"{purchase_year+1}-01-01").date(), min_value=pd.to_datetime(f"{purchase_year}-01-01").date(), max_value=pd.to_datetime(f"{purchase_year + loan_years}-12-31").date(), help="Date refinance begins.")
 
             with col2:
-                refi_costs = st.number_input("Refinance Closing Costs ($)", value=0.0, step=500.0, min_value=0.0, help="One-time costs for refinancing.")
+                refi_costs = st.number_input("Refinance Closing Costs ($)", value=3000.0, step=500.0, min_value=0.0, help="One-time costs for refinancing.")
                 roll_costs = st.selectbox("Refinance Cost Method", ["Add to Loan Balance", "Pay Upfront"], index=0, help="Finance or pay refinance costs upfront.")
                 refi_payment_frequency = st.selectbox("Refi Payment Frequency", ["Monthly", "Biweekly"], index=0, help="Payment frequency for refinanced loan.")
                 refi_mortgage_type = st.selectbox("Refinance Mortgage Type", ["Fixed", "Variable"], index=0, help="Fixed or variable rate for refinanced loan.")
@@ -1163,76 +1163,12 @@ cost_comparison_df['Asset % Difference (Buy vs Rent)'] = np.where(
     0
 )
 
-# Display
-
-
-# Savings from Refinancing
-if show_refinance and refi_start_date:
-    st.header("Savings from Refinancing")
-    # Build aligned annual views with and without refi
-    _aw = annual_with_extra_df.copy()
-    _aw["Year"] = _aw["Date"].dt.year
-    _aw["Cum Interest"] = _aw["Interest"].cumsum()
-    _aw["Cum PMI"] = _aw["PMI"].cumsum() if "PMI" in _aw.columns else 0.0
-
-    _nr = no_refi_annual_df.copy()
-    _nr["Year"] = _nr["Date"].dt.year
-    _nr["Cum Interest"] = _nr["Interest"].cumsum()
-    _nr["Cum PMI"] = _nr["PMI"].cumsum() if "PMI" in _nr.columns else 0.0
-
-    _m = _aw.merge(_nr[["Year","Cum Interest","Cum PMI"]].rename(columns={"Cum Interest":"Cum Interest (No Refi)","Cum PMI":"Cum PMI (No Refi)"}), on="Year", how="inner")
-    _m["Interest Saved (Cum)"] = (_m["Cum Interest (No Refi)"] - _m["Cum Interest"]).clip(lower=-1e12, upper=1e12)
-    _m["PMI Saved (Cum)"] = (_m["Cum PMI (No Refi)"] - _m["Cum PMI"]).clip(lower=-1e12, upper=1e12)
-    _m["Interest Saved (Year)"] = _m["Interest Saved (Cum)"].diff().fillna(_m["Interest Saved (Cum)"])
-    _m["PMI Saved (Year)"] = _m["PMI Saved (Cum)"].diff().fillna(_m["PMI Saved (Cum)"])
-    _m["Total Saved (Cum)"] = _m["Interest Saved (Cum)"] + _m["PMI Saved (Cum)"]
-
-    # Cumulative refi cost (points + closing costs), shown starting at refi year
-    _total_refi_cost = float(refi_costs or 0) + float(refi_points_cost or 0)
-    _m["Cumulative Refi Cost"] = np.where(_m["Year"] >= refi_start_date.year, _total_refi_cost, 0.0)
-
-    tabs_refi = st.tabs(["By Year", "Cumulative"])
-    with tabs_refi[0]:
-        fig_refi_y = go.Figure()
-        fig_refi_y.add_trace(go.Scatter(x=_m["Year"], y=_m["Interest Saved (Year)"], mode="lines+markers", name="Interest Saved (Year)"))
-        fig_refi_y.add_trace(go.Scatter(x=_m["Year"], y=_m["PMI Saved (Year)"], mode="lines+markers", name="PMI Saved (Year)", yaxis="y2"))
-        # Optionally show point refi cost at refi year (as line that steps up once)
-        fig_refi_y.add_trace(go.Scatter(x=_m["Year"], y=np.where(_m["Year"]==refi_start_date.year, _total_refi_cost, 0.0), mode="lines+markers", name="Refi Cost (Upfront)", yaxis="y2"))
-        fig_refi_y.update_layout(
-            plot_bgcolor="rgb(245, 245, 245)", paper_bgcolor="rgb(245, 245, 245)",
-            xaxis_title="Year", yaxis_title="Saved ($)",
-            yaxis2=dict(overlaying="y", side="right", title="PMI / Cost ($)"),
-            legend=dict(yanchor="top", y=1.1, xanchor="left", x=0)
-        )
-        if refi_start_date:
-            fig_refi_y.add_vline(x=refi_start_date.year, line_dash="dash", line_color="#6366F1", annotation_text="Refinance")
-        fig_refi_y.add_hline(y=0, line_dash="dash", line_color="black")
-        style_plot(fig_refi_y)
-        st.plotly_chart(fig_refi_y, use_container_width=True)
-
-    with tabs_refi[1]:
-        fig_refi_c = go.Figure()
-        fig_refi_c.add_trace(go.Scatter(x=_m["Year"], y=_m["Total Saved (Cum)"], mode="lines+markers", name="Total Saved (Cum)"))
-        fig_refi_c.add_trace(go.Scatter(x=_m["Year"], y=_m["Cumulative Refi Cost"], mode="lines+markers", name="Cumulative Refi Cost", yaxis="y2"))
-        fig_refi_c.update_layout(
-            plot_bgcolor="rgb(245, 245, 245)", paper_bgcolor="rgb(245, 245, 245)",
-            xaxis_title="Year", yaxis_title="Saved ($)",
-            yaxis2=dict(overlaying="y", side="right", title="Cumulative Cost ($)"),
-            legend=dict(yanchor="top", y=1.1, xanchor="left", x=0)
-        )
-        if refi_start_date:
-            fig_refi_c.add_vline(x=refi_start_date.year, line_dash="dash", line_color="#6366F1", annotation_text="Refinance")
-        fig_refi_c.add_hline(y=0, line_dash="dash", line_color="black")
-        style_plot(fig_refi_c)
-        st.plotly_chart(fig_refi_c, use_container_width=True)
 
 
 
 thick_divider()
 st.header("2. Mortgage Metrics")
-# Prep
-
-# ===== Mortgage Metrics Prep (3-column + timeline) =====
+# 3 columns w/timeline
 
 def _fmt_money(x):
     try:
@@ -1416,7 +1352,7 @@ try:
 except Exception:
     savings_vs_no_refi_financing = None
 
-with st.container(border=True):
+with st.expander("Expand"):
     c1, c2, c3 = st.columns(3)
     # Original (No Refi Path)
     with c1:
@@ -1494,10 +1430,189 @@ try:
 except Exception as _e:
     st.caption("Timeline unavailable: " + str(_e))
 
+st.subheader("Amortization Breakdown")
+show_baseline = st.checkbox("Show baseline without extra principal (dashed)", value=True)
+schedule_with_extra_df['Year'] = schedule_with_extra_df['Date'].dt.year
+annual_with_extra = annual_with_extra_df.copy()
+annual_with_extra['Year'] = annual_with_extra['Date'].dt.year
+annual_with_extra['Cum Principal'] = annual_with_extra['Principal'].cumsum()
+annual_with_extra['Cum Interest'] = annual_with_extra['Interest'].cumsum()
+annual_with_extra['Cum PMI'] = annual_with_extra['PMI'].cumsum() if 'PMI' in annual_with_extra.columns else 0.0
 
-thick_divider()
+tab1, tab2, tab3 = st.tabs(["By Payment", "By Year", "Cumulative Payoff"])
+with tab1:
+    fig_amort_payment = go.Figure()
+    fig_amort_payment.add_trace(go.Scatter(x=schedule_with_extra_df['Date'], y=schedule_with_extra_df['Principal'], mode='lines', name='Principal (With Extra)', line=dict(dash='solid', color='rgba(33, 150, 243, 1)')))
+    fig_amort_payment.add_trace(go.Scatter(x=schedule_with_extra_df['Date'], y=schedule_with_extra_df['Interest'], mode='lines', name='Interest (With Extra)', line=dict(dash='solid')))
+    fig_amort_payment.add_trace(go.Bar(x=schedule_with_extra_df['Date'], y=schedule_with_extra_df['PMI'], name='PMI', yaxis='y2', opacity=0.4))
+    if show_baseline:
+        fig_amort_payment.add_trace(go.Scatter(x=schedule_without_extra_df['Date'], y=schedule_without_extra_df['Principal'], mode='lines', name='Principal (No Extra)', line=dict(dash='dash')))
+        fig_amort_payment.add_trace(go.Scatter(x=schedule_without_extra_df['Date'], y=schedule_without_extra_df['Interest'], mode='lines', name='Interest (No Extra)', line=dict(dash='dash')))
+    fig_amort_payment.update_layout(
+        plot_bgcolor="rgb(245, 245, 245)", paper_bgcolor="rgb(245, 245, 245)",
+        xaxis_title='Date', yaxis_title='Amount ($)', yaxis2=dict(overlaying='y', side='right', title='PMI ($)'),
+        legend=dict(yanchor="top", y=1.1, xanchor="left", x=0)
+    )
+    if show_refinance and refi_start_date:
+        refi_timestamp = pd.Timestamp(refi_start_date).timestamp() * 1000
+        fig_amort_payment.add_vline(x=refi_timestamp, line_dash="dash", line_color="#6366F1", annotation_text="Refinance")
+    if payoff_year and eval_start_year <= payoff_year <= eval_end_year:
+        payoff_timestamp = pd.Timestamp(f"{payoff_year}-01-01").timestamp() * 1000
+        fig_amort_payment.add_vline(x=payoff_timestamp, line_dash="dash", line_color="purple", annotation_text="Payoff")
+    style_plot(fig_amort_payment)
+    st.plotly_chart(fig_amort_payment, use_container_width=True)
 
-st.header("Savings by Paying Points (Timeline-Aware)")
+with tab2:
+    fig_amort_year = go.Figure()
+    fig_amort_year.add_trace(go.Scatter(x=annual_with_extra['Year'], y=annual_with_extra['Principal'], mode='lines', name='Principal (With Extra)', line=dict(dash='solid', color='rgba(33, 150, 243, 1)')))
+    fig_amort_year.add_trace(go.Scatter(x=annual_with_extra['Year'], y=annual_with_extra['Interest'], mode='lines', name='Interest (With Extra)', line=dict(dash='solid')))
+    fig_amort_year.add_trace(go.Bar(x=annual_with_extra['Year'], y=annual_with_extra['PMI'], name='PMI', yaxis='y2', opacity=0.4))
+    if show_baseline:
+        annual_without_extra_local = annual_without_extra_df.copy()
+        annual_without_extra_local['Year'] = annual_without_extra_local['Date'].dt.year
+        fig_amort_year.add_trace(go.Scatter(x=annual_without_extra_local['Year'], y=annual_without_extra_local['Principal'], mode='lines', name='Principal (No Extra)', line=dict(dash='dash')))
+        fig_amort_year.add_trace(go.Scatter(x=annual_without_extra_local['Year'], y=annual_without_extra_local['Interest'], mode='lines', name='Interest (No Extra)', line=dict(dash='dash')))
+    fig_amort_year.update_layout(
+        plot_bgcolor="rgb(245, 245, 245)", paper_bgcolor="rgb(245, 245, 245)",
+        xaxis_title='Year', yaxis_title='Amount ($)', yaxis2=dict(overlaying='y', side='right', title='PMI ($)'),
+        legend=dict(yanchor="top", y=1.1, xanchor="left", x=0)
+    )
+    if show_refinance and refi_start_date:
+        fig_amort_year.add_vline(x=refi_start_date.year, line_dash="dash", line_color="#6366F1", annotation_text="Refinance")
+    if payoff_year and eval_start_year <= payoff_year <= eval_end_year:
+        fig_amort_year.add_vline(x=payoff_year, line_dash="dash", line_color="purple", annotation_text="Payoff")
+    style_plot(fig_amort_year)
+    st.plotly_chart(fig_amort_year, use_container_width=True)
+
+with tab3:
+    fig_amort_cum = go.Figure()
+    fig_amort_cum.add_trace(go.Scatter(x=annual_with_extra['Year'], y=annual_with_extra['Cum Principal'], mode='lines', name='Principal (With Extra)', line=dict(dash='solid', color='rgba(33, 150, 243, 1)')))
+    fig_amort_cum.add_trace(go.Scatter(x=annual_with_extra['Year'], y=annual_with_extra['Cum Interest'], mode='lines', name='Interest (With Extra)', line=dict(dash='solid')))
+    fig_amort_cum.add_trace(go.Bar(x=annual_with_extra['Year'], y=annual_with_extra['Cum PMI'], name='PMI', yaxis='y2', opacity=0.4))
+    if show_baseline:
+        annual_without_extra_local = annual_without_extra_df.copy()
+        annual_without_extra_local['Year'] = annual_without_extra_local['Date'].dt.year
+        annual_without_extra_local['Cum Principal'] = annual_without_extra_local['Principal'].cumsum()
+        annual_without_extra_local['Cum Interest'] = annual_without_extra_local['Interest'].cumsum()
+        fig_amort_cum.add_trace(go.Scatter(x=annual_without_extra_local['Year'], y=annual_without_extra_local['Cum Principal'], mode='lines', name='Cum Principal (No Extra)', line=dict(dash='dash')))
+        fig_amort_cum.add_trace(go.Scatter(x=annual_without_extra_local['Year'], y=annual_without_extra_local['Cum Interest'], mode='lines', name='Cum Interest (No Extra)', line=dict(dash='dash')))
+    fig_amort_cum.update_layout(
+        plot_bgcolor="rgb(245, 245, 245)", paper_bgcolor="rgb(245, 245, 245)",
+        xaxis_title='Year', yaxis_title='Cumulative Amount ($)', yaxis2=dict(overlaying='y', side='right', title='PMI ($)'),
+        legend=dict(yanchor="top", y=1.1, xanchor="left", x=0)
+    )
+    if show_refinance and refi_start_date:
+        fig_amort_cum.add_vline(x=refi_start_date.year, line_dash="dash", line_color="#6366F1", annotation_text="Refinance")
+    if payoff_year and eval_start_year <= payoff_year <= eval_end_year:
+        fig_amort_cum.add_vline(x=payoff_year, line_dash="dash", line_color="purple", annotation_text="Payoff")
+    style_plot(fig_amort_cum)
+    st.plotly_chart(fig_amort_cum, use_container_width=True)
+
+st.subheader("Amortization Table")
+with st.expander("Expand"):
+    st.markdown("**Note**: 'Loan Type' indicates 'Original' (white) or 'Refinance' (blue). 'Effective Rate (%)' shows the applied interest rate.")
+    tab1, tab2 = st.tabs(["Annual", "Monthly"])
+    with tab1:
+        st.dataframe(
+            annual_with_extra_df.style.format({
+                "Date": "{:%Y}",
+                "Payment": "${:,.2f}",
+                "Interest": "${:,.2f}",
+                "Principal": "${:,.2f}",
+                "Extra Principal Payments": "${:,.2f}",
+                "PMI": "${:,.2f}",
+                "Balance": "${:,.2f}",
+                "Effective Rate (%)": "{:.2f}%"
+            }).apply(lambda row: ["background-color: #e6f3ff" if row["Loan Type"] == "Refinance" else ""] * len(row), axis=1),
+            hide_index=True
+        )
+    with tab2:
+        st.dataframe(
+            monthly_with_extra_df.style.format({
+                "Date": "{:%Y-%m}",
+                "Payment": "${:,.2f}",
+                "Interest": "${:,.2f}",
+                "Principal": "${:,.2f}",
+                "Extra Principal Payments": "${:,.2f}",
+                "PMI": "${:,.2f}",
+                "Balance": "${:,.2f}",
+                "Effective Rate (%)": "{:.2f}%"
+            }).apply(lambda row: ["background-color: #e6f3ff" if row["Loan Type"] == "Refinance" else ""] * len(row), axis=1),
+            hide_index=True
+        )
+
+# Savings from Refinancing
+if show_refinance and refi_start_date:
+    st.subheader("Savings from Refinancing")
+    # Build aligned annual views with and without refi
+    _aw = annual_with_extra_df.copy()
+    _aw["Year"] = _aw["Date"].dt.year
+    _aw["Cum Interest"] = _aw["Interest"].cumsum()
+    _aw["Cum PMI"] = _aw["PMI"].cumsum() if "PMI" in _aw.columns else 0.0
+
+    _nr = no_refi_annual_df.copy()
+    _nr["Year"] = _nr["Date"].dt.year
+    _nr["Cum Interest"] = _nr["Interest"].cumsum()
+    _nr["Cum PMI"] = _nr["PMI"].cumsum() if "PMI" in _nr.columns else 0.0
+
+    _m = _aw.merge(_nr[["Year","Cum Interest","Cum PMI"]].rename(columns={"Cum Interest":"Cum Interest (No Refi)","Cum PMI":"Cum PMI (No Refi)"}), on="Year", how="inner")
+    _m["Interest Saved (Cum)"] = (_m["Cum Interest (No Refi)"] - _m["Cum Interest"]).clip(lower=-1e12, upper=1e12)
+    _m["PMI Saved (Cum)"] = (_m["Cum PMI (No Refi)"] - _m["Cum PMI"]).clip(lower=-1e12, upper=1e12)
+    _m["Interest Saved (Year)"] = _m["Interest Saved (Cum)"].diff().fillna(_m["Interest Saved (Cum)"])
+    _m["PMI Saved (Year)"] = _m["PMI Saved (Cum)"].diff().fillna(_m["PMI Saved (Cum)"])
+    _m["Total Saved (Cum)"] = _m["Interest Saved (Cum)"] + _m["PMI Saved (Cum)"]
+
+    # Cumulative refi cost (points + closing costs), shown starting at refi year
+    _total_refi_cost = float(refi_costs or 0) + float(refi_points_cost or 0)
+    _m["Cumulative Refi Cost"] = np.where(_m["Year"] >= refi_start_date.year, _total_refi_cost, 0.0)
+
+    tabs_refi = st.tabs(["By Year", "Cumulative"])
+    with tabs_refi[0]:
+        fig_refi_y = go.Figure()
+        fig_refi_y.add_trace(go.Scatter(x=_m["Year"], y=_m["Interest Saved (Year)"], mode="lines+markers", name="Interest Saved (Year)"))
+        fig_refi_y.add_trace(go.Scatter(x=_m["Year"], y=_m["PMI Saved (Year)"], mode="lines+markers", name="PMI Saved (Year)", yaxis="y2"))
+        # Optionally show point refi cost at refi year (as line that steps up once)
+        fig_refi_y.add_trace(go.Scatter(x=_m["Year"], y=np.where(_m["Year"]==refi_start_date.year, _total_refi_cost, 0.0), mode="lines+markers", name="Refi Cost (Upfront)", yaxis="y2"))
+        fig_refi_y.update_layout(
+            plot_bgcolor="rgb(245, 245, 245)", paper_bgcolor="rgb(245, 245, 245)",
+            xaxis_title="Year", yaxis_title="Saved ($)",
+            yaxis2=dict(overlaying="y", side="right", title="PMI / Cost ($)"),
+            legend=dict(yanchor="top", y=1.1, xanchor="left", x=0)
+        )
+        if refi_start_date:
+            fig_refi_y.add_vline(x=refi_start_date.year, line_dash="dash", line_color="#6366F1", annotation_text="Refinance")
+        fig_refi_y.add_hline(y=0, line_dash="dash", line_color="black")
+        style_plot(fig_refi_y)
+        st.plotly_chart(fig_refi_y, use_container_width=True)
+
+    with tabs_refi[1]:
+        fig_refi_c = go.Figure()
+        fig_refi_c.add_trace(go.Scatter(x=_m["Year"], y=_m["Total Saved (Cum)"], mode="lines+markers", name="Total Saved (Cum)"))
+        fig_refi_c.add_trace(go.Scatter(x=_m["Year"], y=_m["Cumulative Refi Cost"], mode="lines+markers", name="Cumulative Refi Cost", yaxis="y2"))
+        fig_refi_c.update_layout(
+            plot_bgcolor="rgb(245, 245, 245)", paper_bgcolor="rgb(245, 245, 245)",
+            xaxis_title="Year", yaxis_title="Saved ($)",
+            yaxis2=dict(overlaying="y", side="right", title="Cumulative Cost ($)"),
+            legend=dict(yanchor="top", y=1.1, xanchor="left", x=0)
+        )
+        if refi_start_date:
+            fig_refi_c.add_vline(x=refi_start_date.year, line_dash="dash", line_color="#6366F1", annotation_text="Refinance")
+        fig_refi_c.add_hline(y=0, line_dash="dash", line_color="black")
+        style_plot(fig_refi_c)
+        st.plotly_chart(fig_refi_c, use_container_width=True)
+
+
+
+
+
+
+
+
+
+
+
+
+st.subheader("Savings by Paying Points (Timeline-Aware)")
 
 def _ann_rate_to_period(annual_pct, ppy=12):
     try:
@@ -1619,118 +1734,6 @@ st.plotly_chart(fig_points,use_container_width=True)
 
 st.caption("Origination points savings shown until refinance date. If breakeven wasn’t reached, curve is truncated. Refi points savings start fresh from refinance date.")
 
-st.subheader("Amortization Breakdown")
-show_baseline = st.checkbox("Show baseline without extra principal (dashed)", value=True)
-schedule_with_extra_df['Year'] = schedule_with_extra_df['Date'].dt.year
-annual_with_extra = annual_with_extra_df.copy()
-annual_with_extra['Year'] = annual_with_extra['Date'].dt.year
-annual_with_extra['Cum Principal'] = annual_with_extra['Principal'].cumsum()
-annual_with_extra['Cum Interest'] = annual_with_extra['Interest'].cumsum()
-annual_with_extra['Cum PMI'] = annual_with_extra['PMI'].cumsum() if 'PMI' in annual_with_extra.columns else 0.0
-
-tab1, tab2, tab3 = st.tabs(["By Payment", "By Year", "Cumulative Payoff"])
-with tab1:
-    fig_amort_payment = go.Figure()
-    fig_amort_payment.add_trace(go.Scatter(x=schedule_with_extra_df['Date'], y=schedule_with_extra_df['Principal'], mode='lines', name='Principal (With Extra)', line=dict(dash='solid', color='rgba(33, 150, 243, 1)')))
-    fig_amort_payment.add_trace(go.Scatter(x=schedule_with_extra_df['Date'], y=schedule_with_extra_df['Interest'], mode='lines', name='Interest (With Extra)', line=dict(dash='solid')))
-    fig_amort_payment.add_trace(go.Bar(x=schedule_with_extra_df['Date'], y=schedule_with_extra_df['PMI'], name='PMI', yaxis='y2', opacity=0.4))
-    if show_baseline:
-        fig_amort_payment.add_trace(go.Scatter(x=schedule_without_extra_df['Date'], y=schedule_without_extra_df['Principal'], mode='lines', name='Principal (No Extra)', line=dict(dash='dash')))
-        fig_amort_payment.add_trace(go.Scatter(x=schedule_without_extra_df['Date'], y=schedule_without_extra_df['Interest'], mode='lines', name='Interest (No Extra)', line=dict(dash='dash')))
-    fig_amort_payment.update_layout(
-        plot_bgcolor="rgb(245, 245, 245)", paper_bgcolor="rgb(245, 245, 245)",
-        xaxis_title='Date', yaxis_title='Amount ($)', yaxis2=dict(overlaying='y', side='right', title='PMI ($)'),
-        legend=dict(yanchor="top", y=1.1, xanchor="left", x=0)
-    )
-    if show_refinance and refi_start_date:
-        refi_timestamp = pd.Timestamp(refi_start_date).timestamp() * 1000
-        fig_amort_payment.add_vline(x=refi_timestamp, line_dash="dash", line_color="#6366F1", annotation_text="Refinance")
-    if payoff_year and eval_start_year <= payoff_year <= eval_end_year:
-        payoff_timestamp = pd.Timestamp(f"{payoff_year}-01-01").timestamp() * 1000
-        fig_amort_payment.add_vline(x=payoff_timestamp, line_dash="dash", line_color="purple", annotation_text="Payoff")
-    style_plot(fig_amort_payment)
-    st.plotly_chart(fig_amort_payment, use_container_width=True)
-
-with tab2:
-    fig_amort_year = go.Figure()
-    fig_amort_year.add_trace(go.Scatter(x=annual_with_extra['Year'], y=annual_with_extra['Principal'], mode='lines', name='Principal (With Extra)', line=dict(dash='solid', color='rgba(33, 150, 243, 1)')))
-    fig_amort_year.add_trace(go.Scatter(x=annual_with_extra['Year'], y=annual_with_extra['Interest'], mode='lines', name='Interest (With Extra)', line=dict(dash='solid')))
-    fig_amort_year.add_trace(go.Bar(x=annual_with_extra['Year'], y=annual_with_extra['PMI'], name='PMI', yaxis='y2', opacity=0.4))
-    if show_baseline:
-        annual_without_extra_local = annual_without_extra_df.copy()
-        annual_without_extra_local['Year'] = annual_without_extra_local['Date'].dt.year
-        fig_amort_year.add_trace(go.Scatter(x=annual_without_extra_local['Year'], y=annual_without_extra_local['Principal'], mode='lines', name='Principal (No Extra)', line=dict(dash='dash')))
-        fig_amort_year.add_trace(go.Scatter(x=annual_without_extra_local['Year'], y=annual_without_extra_local['Interest'], mode='lines', name='Interest (No Extra)', line=dict(dash='dash')))
-    fig_amort_year.update_layout(
-        plot_bgcolor="rgb(245, 245, 245)", paper_bgcolor="rgb(245, 245, 245)",
-        xaxis_title='Year', yaxis_title='Amount ($)', yaxis2=dict(overlaying='y', side='right', title='PMI ($)'),
-        legend=dict(yanchor="top", y=1.1, xanchor="left", x=0)
-    )
-    if show_refinance and refi_start_date:
-        fig_amort_year.add_vline(x=refi_start_date.year, line_dash="dash", line_color="#6366F1", annotation_text="Refinance")
-    if payoff_year and eval_start_year <= payoff_year <= eval_end_year:
-        fig_amort_year.add_vline(x=payoff_year, line_dash="dash", line_color="purple", annotation_text="Payoff")
-    style_plot(fig_amort_year)
-    st.plotly_chart(fig_amort_year, use_container_width=True)
-
-with tab3:
-    fig_amort_cum = go.Figure()
-    fig_amort_cum.add_trace(go.Scatter(x=annual_with_extra['Year'], y=annual_with_extra['Cum Principal'], mode='lines', name='Principal (With Extra)', line=dict(dash='solid', color='rgba(33, 150, 243, 1)')))
-    fig_amort_cum.add_trace(go.Scatter(x=annual_with_extra['Year'], y=annual_with_extra['Cum Interest'], mode='lines', name='Interest (With Extra)', line=dict(dash='solid')))
-    fig_amort_cum.add_trace(go.Bar(x=annual_with_extra['Year'], y=annual_with_extra['Cum PMI'], name='PMI', yaxis='y2', opacity=0.4))
-    if show_baseline:
-        annual_without_extra_local = annual_without_extra_df.copy()
-        annual_without_extra_local['Year'] = annual_without_extra_local['Date'].dt.year
-        annual_without_extra_local['Cum Principal'] = annual_without_extra_local['Principal'].cumsum()
-        annual_without_extra_local['Cum Interest'] = annual_without_extra_local['Interest'].cumsum()
-        fig_amort_cum.add_trace(go.Scatter(x=annual_without_extra_local['Year'], y=annual_without_extra_local['Cum Principal'], mode='lines', name='Cum Principal (No Extra)', line=dict(dash='dash')))
-        fig_amort_cum.add_trace(go.Scatter(x=annual_without_extra_local['Year'], y=annual_without_extra_local['Cum Interest'], mode='lines', name='Cum Interest (No Extra)', line=dict(dash='dash')))
-    fig_amort_cum.update_layout(
-        plot_bgcolor="rgb(245, 245, 245)", paper_bgcolor="rgb(245, 245, 245)",
-        xaxis_title='Year', yaxis_title='Cumulative Amount ($)', yaxis2=dict(overlaying='y', side='right', title='PMI ($)'),
-        legend=dict(yanchor="top", y=1.1, xanchor="left", x=0)
-    )
-    if show_refinance and refi_start_date:
-        fig_amort_cum.add_vline(x=refi_start_date.year, line_dash="dash", line_color="#6366F1", annotation_text="Refinance")
-    if payoff_year and eval_start_year <= payoff_year <= eval_end_year:
-        fig_amort_cum.add_vline(x=payoff_year, line_dash="dash", line_color="purple", annotation_text="Payoff")
-    style_plot(fig_amort_cum)
-    st.plotly_chart(fig_amort_cum, use_container_width=True)
-
-st.subheader("Amortization Table")
-with st.expander("Expand"):
-    st.markdown("**Note**: 'Loan Type' indicates 'Original' (white) or 'Refinance' (blue). 'Effective Rate (%)' shows the applied interest rate.")
-    tab1, tab2 = st.tabs(["Annual", "Monthly"])
-    with tab1:
-        st.dataframe(
-            annual_with_extra_df.style.format({
-                "Date": "{:%Y}",
-                "Payment": "${:,.2f}",
-                "Interest": "${:,.2f}",
-                "Principal": "${:,.2f}",
-                "Extra Principal Payments": "${:,.2f}",
-                "PMI": "${:,.2f}",
-                "Balance": "${:,.2f}",
-                "Effective Rate (%)": "{:.2f}%"
-            }).apply(lambda row: ["background-color: #e6f3ff" if row["Loan Type"] == "Refinance" else ""] * len(row), axis=1),
-            hide_index=True
-        )
-    with tab2:
-        st.dataframe(
-            monthly_with_extra_df.style.format({
-                "Date": "{:%Y-%m}",
-                "Payment": "${:,.2f}",
-                "Interest": "${:,.2f}",
-                "Principal": "${:,.2f}",
-                "Extra Principal Payments": "${:,.2f}",
-                "PMI": "${:,.2f}",
-                "Balance": "${:,.2f}",
-                "Effective Rate (%)": "{:.2f}%"
-            }).apply(lambda row: ["background-color: #e6f3ff" if row["Loan Type"] == "Refinance" else ""] * len(row), axis=1),
-            hide_index=True
-        )
-
-st.divider()  # divider between Mortgage Metrics and Savings Comparison
 # Prepare baseline (without extra payments) for savings comparison
 annual_without_extra = annual_without_extra_df.copy()
 annual_without_extra['Year'] = annual_without_extra['Date'].dt.year
@@ -2185,14 +2188,14 @@ st.subheader("Net Asset Value (Assets - Costs) Over Time")
 st.info("**Net Assets = Total Assets − Cumulative Costs.** A negative value means cumulative costs so far exceed assets accumulated to date; a positive value means assets exceed costs.")
 with st.container(border=True):
     options = {
-        "Buy — Total Assets": ("Buying Total Assets", "Assets", "Buy"),
-        "Rent — Total Assets": ("Renting Total Assets", "Assets", "Rent"),
-        "Buy — Cumulative Costs": ("Cumulative Buying Cost", "Costs", "Buy"),
-        "Rent — Cumulative Costs": ("Cumulative Renting Cost", "Costs", "Rent"),
-        "Buy — Net Assets": ("Buying Total Assets", "Net", "Buy"),
-        "Rent — Net Assets": ("Renting Total Assets", "Net", "Rent"),
+        "Buy - Total Assets": ("Buying Total Assets", "Assets", "Buy"),
+        "Rent - Total Assets": ("Renting Total Assets", "Assets", "Rent"),
+        "Buy - Cumulative Costs": ("Cumulative Buying Cost", "Costs", "Buy"),
+        "Rent - Cumulative Costs": ("Cumulative Renting Cost", "Costs", "Rent"),
+        "Buy - Net Assets": ("Buying Total Assets", "Net", "Buy"),
+        "Rent - Net Assets": ("Renting Total Assets", "Net", "Rent"),
     }
-    selected = st.multiselect("Select lines to display", list(options.keys()), ["Buy — Net Assets"])
+    selected = st.multiselect("Select lines to display", list(options.keys()), ["Buy - Net Assets"])
     long_df = []
     for key in selected:
         col_name, kind, side = options[key]
