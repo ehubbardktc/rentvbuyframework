@@ -336,7 +336,6 @@ st.header("1. Inputs")
 
 # --- UI layout: Buy left, Rent right + header styling ---
 col_buy, col_rent = st.columns(2)
-st.markdown("Configure the parameters below to compare renting vs. buying. All fields are required unless marked optional. Adjust parameters below to compare renting vs. buying.")
 # Ensure property tax growth default
 if 'annual_property_tax_increase' not in st.session_state:
     st.session_state['annual_property_tax_increase'] = 3.0
@@ -405,19 +404,19 @@ with col_buy:
 
             display_loan_amount = loan_amount + (points_cost if (buy_points and points_cost_method == "Add to Loan Balance") else 0)
             st.metric("Calculated Loan Amount", f"${display_loan_amount:,.0f}", help="Includes financed closing costs and financed points when applicable.")
-            # Inside the "Advanced Options" section, replace the Extra Principal Payments part
-            st.markdown("#### Extra Principal Payments")
-            with st.expander("Extra Principal Payments", expanded=False):
-                st.markdown("Add extra payments to reduce your mortgage principal faster. Ensure all required fields are filled to avoid errors.")
-                default_payments = pd.DataFrame({
-                    "Amount ($)": [200, 10000],
-                    "Frequency": ["Monthly", "One-time"],
-                    "Start Year": [purchase_year, purchase_year + 5],
-                    "Start Month": [1, 6],
-                    "End Year": [purchase_year + 5, purchase_year + 5],
-                    "End Month": [12, 6],
-                    "Interval (Years)": [None, None]
-                })
+        # Inside the "Advanced Options" section, replace the Extra Principal Payments part
+        st.markdown("#### Extra Principal Payments")
+        with st.expander("Extra Principal Payments", expanded=False):
+            st.markdown("Add extra payments to reduce your mortgage principal faster. Ensure all required fields are filled to avoid errors.")
+            default_payments = pd.DataFrame({
+                "Amount ($)": [200, 10000],
+                "Frequency": ["Monthly", "One-time"],
+                "Start Year": [purchase_year, purchase_year + 5],
+                "Start Month": [1, 6],
+                "End Year": [purchase_year + 5, purchase_year + 5],
+                "End Month": [12, 6],
+                "Interval (Years)": [None, None]
+            })
 
             extra_payments = st.data_editor(
                 default_payments,
@@ -572,6 +571,7 @@ with col_buy:
 with col_rent:
     st.subheader("Rental Parameters")
     with st.container(border=True):
+        st.markdown("#### Rent and Fees")
         with st.expander("Expand"):
             col1, col2 = st.columns(2)
             with col1:
@@ -587,13 +587,15 @@ with col_rent:
                 application_fee = st.number_input("Application Fee ($)", value=float(st.session_state["application_fee"]), step=10.0, min_value=0.0, help="One-time fee per lease application.")
                 lease_renewal_fee = st.number_input("Annual Lease Renewal Fee ($)", value=float(st.session_state["lease_renewal_fee"]), step=50.0, min_value=0.0, help="Annual fee for renewing lease.")
                 parking_fee = st.number_input("Monthly Parking Fee ($)", value=float(st.session_state["parking_fee"]), step=10.0, min_value=0.0, help="Monthly parking cost.")
-            st.markdown("#### Rental Increase")
+        st.markdown("#### Rental Increase")
+        with st.expander("Expand"):
             annual_rent_increase = st.number_input("Annual Rent Increase (%)", value=st.session_state["annual_rent_increase"], step=0.1, min_value=0.0, help="Expected annual increase in rent.")
 
         # Investment and Evaluation Period
     st.markdown("</div>", unsafe_allow_html=True)
+
 st.subheader("Investment and Analysis Period")
-with st.container(border=True):
+with st.expander("Expand"):
     col1, col2 = st.columns(2)
     with col1:
         st.markdown("#### Investment Returns")
@@ -1231,8 +1233,6 @@ st.header("2. Mortgage Metrics")
 # Prep
 
 # ===== Mortgage Metrics Prep (3-column + timeline) =====
-import plotly.graph_objects as go
-import pandas as pd
 
 def _fmt_money(x):
     try:
@@ -1618,39 +1618,6 @@ fig_points.update_layout(yaxis_title="$ Saved vs No Points",xaxis_title="Months 
 st.plotly_chart(fig_points,use_container_width=True)
 
 st.caption("Origination points savings shown until refinance date. If breakeven wasn’t reached, curve is truncated. Refi points savings start fresh from refinance date.")
-# --- Legacy Chart Below ---
-st.subheader("Amortization Schedule")
-
-st.markdown("**Note**: 'Loan Type' indicates 'Original' (white) or 'Refinance' (blue). 'Effective Rate (%)' shows the applied interest rate.")
-tab1, tab2 = st.tabs(["Annual", "Monthly"])
-with tab1:
-    st.dataframe(
-        annual_with_extra_df.style.format({
-            "Date": "{:%Y}",
-            "Payment": "${:,.2f}",
-            "Interest": "${:,.2f}",
-            "Principal": "${:,.2f}",
-            "Extra Principal Payments": "${:,.2f}",
-            "PMI": "${:,.2f}",
-            "Balance": "${:,.2f}",
-            "Effective Rate (%)": "{:.2f}%"
-        }).apply(lambda row: ["background-color: #e6f3ff" if row["Loan Type"] == "Refinance" else ""] * len(row), axis=1),
-        hide_index=True
-    )
-with tab2:
-    st.dataframe(
-        monthly_with_extra_df.style.format({
-            "Date": "{:%Y-%m}",
-            "Payment": "${:,.2f}",
-            "Interest": "${:,.2f}",
-            "Principal": "${:,.2f}",
-            "Extra Principal Payments": "${:,.2f}",
-            "PMI": "${:,.2f}",
-            "Balance": "${:,.2f}",
-            "Effective Rate (%)": "{:.2f}%"
-        }).apply(lambda row: ["background-color: #e6f3ff" if row["Loan Type"] == "Refinance" else ""] * len(row), axis=1),
-        hide_index=True
-    )
 
 st.subheader("Amortization Breakdown")
 show_baseline = st.checkbox("Show baseline without extra principal (dashed)", value=True)
@@ -1729,6 +1696,39 @@ with tab3:
         fig_amort_cum.add_vline(x=payoff_year, line_dash="dash", line_color="purple", annotation_text="Payoff")
     style_plot(fig_amort_cum)
     st.plotly_chart(fig_amort_cum, use_container_width=True)
+
+st.subheader("Amortization Table")
+with st.expander("Expand"):
+    st.markdown("**Note**: 'Loan Type' indicates 'Original' (white) or 'Refinance' (blue). 'Effective Rate (%)' shows the applied interest rate.")
+    tab1, tab2 = st.tabs(["Annual", "Monthly"])
+    with tab1:
+        st.dataframe(
+            annual_with_extra_df.style.format({
+                "Date": "{:%Y}",
+                "Payment": "${:,.2f}",
+                "Interest": "${:,.2f}",
+                "Principal": "${:,.2f}",
+                "Extra Principal Payments": "${:,.2f}",
+                "PMI": "${:,.2f}",
+                "Balance": "${:,.2f}",
+                "Effective Rate (%)": "{:.2f}%"
+            }).apply(lambda row: ["background-color: #e6f3ff" if row["Loan Type"] == "Refinance" else ""] * len(row), axis=1),
+            hide_index=True
+        )
+    with tab2:
+        st.dataframe(
+            monthly_with_extra_df.style.format({
+                "Date": "{:%Y-%m}",
+                "Payment": "${:,.2f}",
+                "Interest": "${:,.2f}",
+                "Principal": "${:,.2f}",
+                "Extra Principal Payments": "${:,.2f}",
+                "PMI": "${:,.2f}",
+                "Balance": "${:,.2f}",
+                "Effective Rate (%)": "{:.2f}%"
+            }).apply(lambda row: ["background-color: #e6f3ff" if row["Loan Type"] == "Refinance" else ""] * len(row), axis=1),
+            hide_index=True
+        )
 
 st.divider()  # divider between Mortgage Metrics and Savings Comparison
 # Prepare baseline (without extra payments) for savings comparison
