@@ -1492,60 +1492,135 @@ except Exception as _e:
 
 
 thick_divider()
+
+
+
 st.header("Savings by Paying Points (Timeline-Aware)")
 
-# --- Timeline-aware breakeven analysis for points ---
-show_all_scenarios = st.checkbox("Show all scenarios", value=False, key="show_all_points_scenarios")
+import numpy as np
+import plotly.graph_objects as go
+import pandas as pd
+
+def _ann_rate_to_period(annual_pct, ppy=12):
+    try:
+        return float(annual_pct)/100.0/ppy
+    except Exception:
+        return None
+
+def _pmt(principal, annual_pct, years, ppy=12):
+    try:
+        n = int(round(float(years)*ppy))
+        r = _ann_rate_to_period(annual_pct, ppy)
+        if principal is None or r is None or n <= 0:
+            return None
+        if r == 0:
+            return principal / n
+        return principal * r / (1 - (1+r)**(-n))
+    except Exception:
+        return None
+
+loan_amount    = globals().get('display_loan_amount', globals().get('loan_amount', None))
+loan_years     = globals().get('loan_years', None)
+base_rate      = globals().get('mortgage_rate', globals().get('base_rate', None))
+eff_rate       = globals().get('effective_mortgage_rate', globals().get('effective_rate', None))
+points_cost    = globals().get('points_cost', 0.0)
+points         = globals().get('points', 0.0)
+disc_per_point = globals().get('discount_per_point', 0.0)
+ppy_main       = globals().get('main_periods_per_year', 12) or 12
+
+refi_date      = globals().get('refi_start_date', None)
+refi_term_years= globals().get('refi_term_years', None)
+refi_rate      = globals().get('refi_rate', None)
+refi_eff_rate  = globals().get('refi_effective_rate', None)
+refi_points_cost = globals().get('refi_points_cost', 0.0)
+refi_points    = globals().get('refi_points', 0.0)
+refi_disc_pt   = globals().get('refi_discount_per_point', 0.0)
+refi_ppy       = globals().get('refi_periods_per_year', ppy_main) or ppy_main
+
+df_no_refi = globals().get('no_refi_schedule_df', None)
+if df_no_refi is None:
+    df_no_refi = globals().get('no_refi_monthly_df', None)
+df_with_refi = globals().get('monthly_with_extra_df', None)
+if df_with_refi is None:
+    df_with_refi = globals().get('schedule_with_extra_df', None)
+
+orig_start_date = None
+if df_no_refi is not None and 'Date' in df_no_refi.columns and len(df_no_refi)>0:
+    orig_start_date = pd.to_datetime(df_no_refi['Date']).min()
+elif df_with_refi is not None and 'Date' in df_with_refi.columns and len(df_with_refi)>0:
+    orig_start_date = pd.to_datetime(df_with_refi['Date']).min()
+
+refi_offset_m = None
+if refi_date is not None and orig_start_date is not None:
+    try:
+        rd = pd.to_datetime(refi_date)
+        refi_offset_m = (rd.to_period("M") - orig_start_date.to_period("M")).n
+    except Exception:
+        pass
+
+# Calculate payments
+rate_no_points = base_rate
+rate_with_points = eff_rate
+pmt_no_pts  = _pmt(loan_amount, rate_no_points, loan_years, ppy_main)
+pmt_with_pts= _pmt(loan_amount, rate_with_points, loan_years, ppy_main)
+monthly_savings_orig = (pmt_no_pts - pmt_with_pts) if (pmt_no_pts and pmt_with_pts) else None
+
+months_orig = list(range(1, int((loan_years or 0)*(ppy_main or 12))+1))
+cum_sav_orig = [monthly_savings_orig*m - (points_cost or 0.0) for m in months_orig] if monthly_savings_orig else None
+if cum_sav_orig and refi_offset_m:
+    months_orig = months_orig[:refi_offset_m]
+    cum_sav_orig = cum_sav_orig[:refi_offset_m]
+
+refi_principal = None
+if df_with_refi is not None and 'Balance' in df_with_refi.columns and refi_date is not None:
+    try:
+        df_with_refi_tmp = df_with_refi.copy()
+        df_with_refi_tmp['Date'] = pd.to_datetime(df_with_refi_tmp['Date'])
+        ixs = df_with_refi_tmp.index[df_with_refi_tmp['Date']>=pd.to_datetime(refi_date)]
+        if len(ixs):
+            i0 = ixs[0]
+            if i0>0:
+                refi_principal = float(df_with_refi_tmp.loc[i0-1,'Balance'])
+            else:
+                refi_principal = float(df_with_refi_tmp.loc[i0,'Balance'])
+    except Exception:
+        pass
+
+pmt_refi_no_pts  = _pmt(refi_principal, refi_rate, refi_term_years, refi_ppy)
+pmt_refi_with_pts= _pmt(refi_principal, refi_eff_rate, refi_term_years, refi_ppy)
+monthly_savings_refi = (pmt_refi_no_pts - pmt_refi_with_pts) if (pmt_refi_no_pts and pmt_refi_with_pts) else None
+
+months_refi = []
+cum_sav_refi = None
+if monthly_savings_refi and refi_offset_m is not None:
+    total_refi_months = int((refi_term_years or 0)*(refi_ppy or 12))
+    months_refi = list(range(refi_offset_m, refi_offset_m+total_refi_months))
+    cum_sav_refi = [monthly_savings_refi*(i-refi_offset_m) - (refi_points_cost or 0.0) for i in months_refi]
 
 fig_points = go.Figure()
+# Orig curve
+if cum_sav_orig:
+    fig_points.add_trace(go.Scatter(x=months_orig,y=cum_sav_orig,mode="lines",name="Origination Points",line=dict(color="blue")))
+    if monthly_savings_orig and points_cost:
+        be_m = int(np.ceil(points_cost/monthly_savings_orig))
+        if refi_offset_m is None or be_m <= refi_offset_m:
+            fig_points.add_annotation(x=be_m,y=0,text=f"Breakeven @ {be_m} mo",showarrow=True,arrowhead=2,font=dict(color="blue"))
+        else:
+            fig_points.add_annotation(x=be_m,y=0,text=f"Would've breakeven @ {be_m} mo (after refi)",showarrow=False,font=dict(color="gray",style="italic"))
+# Refi curve
+if cum_sav_refi:
+    fig_points.add_trace(go.Scatter(x=months_refi,y=cum_sav_refi,mode="lines",name="Refi Points",line=dict(color="green")))
+    if monthly_savings_refi and refi_points_cost and refi_offset_m is not None:
+        be_refi = int(np.ceil(refi_points_cost/monthly_savings_refi))+refi_offset_m
+        fig_points.add_annotation(x=be_refi,y=0,text=f"Refi Breakeven @ {be_refi} mo",showarrow=True,arrowhead=2,font=dict(color="green"))
 
-# Only proceed if DataFrames exist
-if df_no_refi is not None or df_with_refi is not None:
-    # --- Origination Points Savings ---
-    if df_no_refi is not None and 'Payment' in df_no_refi.columns:
-        upfront_points_cost = orig_points_cost or 0.0
-        monthly_savings = (globals().get('monthly_payment_no_points') or 0) - (globals().get('monthly_payment_with_points') or 0)
-        if monthly_savings and monthly_savings > 0:
-            months = list(range(1, len(df_no_refi)+1))
-            cum_savings = [monthly_savings*m - upfront_points_cost for m in months]
-            # truncate at refi date if exists
-            if refi_date is not None:
-                refi_months = (pd.to_datetime(refi_date).to_period("M") - orig_start_date.to_period("M")).n if orig_start_date is not None else None
-                if refi_months is not None:
-                    months = months[:refi_months]
-                    cum_savings = cum_savings[:refi_months]
-            fig_points.add_trace(go.Scatter(x=months, y=cum_savings, mode="lines", name="Origination Points"))
-            # Annotate breakeven
-            if upfront_points_cost > 0 and monthly_savings > 0:
-                breakeven_months = int(round(upfront_points_cost/monthly_savings))
-                if refi_date is None or (refi_months and breakeven_months <= refi_months):
-                    fig_points.add_annotation(x=breakeven_months, y=0, text=f"Breakeven @ {breakeven_months} mo", showarrow=True, arrowhead=2)
-                elif refi_date is not None and breakeven_months > refi_months:
-                    fig_points.add_annotation(x=breakeven_months, y=0, text=f"Would've breakeven @ {breakeven_months} mo (after refi)", showarrow=False, font=dict(color="gray"))
-    # --- Refi Points Savings ---
-    if df_with_refi is not None and refi_date is not None and 'Payment' in df_with_refi.columns:
-        refi_upfront_points_cost = refi_points_cost or 0.0
-        monthly_savings_refi = (globals().get('refi_monthly_payment_no_points') or 0) - (globals().get('refi_monthly_payment_with_points') or 0)
-        if monthly_savings_refi and monthly_savings_refi > 0:
-            refi_start_month = (pd.to_datetime(refi_date).to_period("M") - orig_start_date.to_period("M")).n if orig_start_date is not None else 0
-            months_refi = list(range(refi_start_month, refi_start_month+len(df_with_refi)))
-            cum_savings_refi = [monthly_savings_refi*(i-refi_start_month) - refi_upfront_points_cost for i in months_refi]
-            fig_points.add_trace(go.Scatter(x=months_refi, y=cum_savings_refi, mode="lines", name="Refi Points"))
-            # Annotate breakeven
-            if refi_upfront_points_cost > 0 and monthly_savings_refi > 0:
-                breakeven_refi = refi_start_month + int(round(refi_upfront_points_cost/monthly_savings_refi))
-                fig_points.add_annotation(x=breakeven_refi, y=0, text=f"Refi Breakeven @ {breakeven_refi} mo", showarrow=True, arrowhead=2)
+if refi_offset_m:
+    fig_points.add_vline(x=refi_offset_m,line=dict(color="gray",dash="dash"),annotation_text="Refi",annotation_position="top")
 
-    # Vertical line at refi date
-    if refi_date is not None and orig_start_date is not None:
-        refi_months = (pd.to_datetime(refi_date).to_period("M") - orig_start_date.to_period("M")).n
-        fig_points.add_vline(x=refi_months, line=dict(color="gray", dash="dash"), annotation_text="Refi", annotation_position="top")
+fig_points.update_layout(yaxis_title="$ Saved vs No Points",xaxis_title="Months since start",height=380,margin=dict(l=20,r=20,t=40,b=20),showlegend=True)
+st.plotly_chart(fig_points,use_container_width=True)
 
-fig_points.update_layout(yaxis_title="$ Saved vs No Points", xaxis_title="Months", height=350, margin=dict(l=20,r=20,t=40,b=20))
-st.plotly_chart(fig_points, use_container_width=True)
-
-st.caption("Origination points savings are shown only until the refinance date. If breakeven wasn’t reached, the curve is truncated. Refi points savings start fresh from the refinance date. Use 'Show all scenarios' to compare strategies.")
-
+st.caption("Origination points savings shown until refinance date. If breakeven wasn’t reached, curve is truncated. Refi points savings start fresh from refinance date.")
 # --- Legacy Chart Below ---
 st.subheader("Amortization Schedule")
 
@@ -2548,3 +2623,67 @@ with st.container(border=True):
     fig_box.add_trace(go.Box(y=rent_paths[:, -1], name="Rent — Net Worth (Final Year)"))
     style_plot(fig_box)
     st.plotly_chart(fig_box, use_container_width=True)
+
+
+show_all_scenarios = st.checkbox("Show all scenarios", value=False, key="show_all_points_scenarios")
+if show_all_scenarios:
+    # Baseline (No points) - gray dashed
+    max_x = 0
+    if months_orig:
+        max_x = max(max_x, months_orig[-1])
+    if months_refi:
+        max_x = max(max_x, months_refi[-1])
+    if max_x == 0:
+        max_x = 360
+    fig_points.add_trace(
+        go.Scatter(
+            x=list(range(0, max_x+1)),
+            y=[0]*(max_x+1),
+            mode="lines",
+            name="No Points",
+            line=dict(color="gray", dash="dot")
+        )
+    )
+
+    # Orig-only (blue)
+    if cum_sav_orig is not None and refi_offset_m is not None:
+        y_end = cum_sav_orig[-1] if len(cum_sav_orig) > 0 else 0.0
+        x_ext = list(range(refi_offset_m, max_x+1))
+        y_ext = [y_end]*len(x_ext)
+        fig_points.add_trace(
+            go.Scatter(
+                x=(months_orig + x_ext),
+                y=(cum_sav_orig + y_ext),
+                mode="lines",
+                name="Orig Points Only",
+                line=dict(color="blue")
+            )
+        )
+
+    # Refi-only (green)
+    if cum_sav_refi is not None and refi_offset_m is not None:
+        x_pre = list(range(0, refi_offset_m))
+        y_pre = [0.0]*len(x_pre)
+        fig_points.add_trace(
+            go.Scatter(
+                x=(x_pre + months_refi),
+                y=(y_pre + cum_sav_refi),
+                mode="lines",
+                name="Refi Points Only",
+                line=dict(color="green")
+            )
+        )
+
+    # Both (purple)
+    if cum_sav_orig is not None and cum_sav_refi is not None and refi_offset_m is not None:
+        y_end = cum_sav_orig[-1] if len(cum_sav_orig) > 0 else 0.0
+        cum_both = [y_end + (monthly_savings_refi*(i - refi_offset_m) - (refi_points_cost or 0.0)) for i in months_refi]
+        fig_points.add_trace(
+            go.Scatter(
+                x=(months_orig + months_refi),
+                y=(cum_sav_orig + cum_both),
+                mode="lines",
+                name="Both Orig + Refi Points",
+                line=dict(color="purple")
+            )
+        )
