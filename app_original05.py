@@ -1490,6 +1490,63 @@ try:
 except Exception as _e:
     st.caption("Timeline unavailable: " + str(_e))
 
+
+thick_divider()
+st.header("Savings by Paying Points (Timeline-Aware)")
+
+# --- Timeline-aware breakeven analysis for points ---
+show_all_scenarios = st.checkbox("Show all scenarios", value=False, key="show_all_points_scenarios")
+
+fig_points = go.Figure()
+
+# Only proceed if DataFrames exist
+if df_no_refi is not None or df_with_refi is not None:
+    # --- Origination Points Savings ---
+    if df_no_refi is not None and 'Payment' in df_no_refi.columns:
+        upfront_points_cost = orig_points_cost or 0.0
+        monthly_savings = (globals().get('monthly_payment_no_points') or 0) - (globals().get('monthly_payment_with_points') or 0)
+        if monthly_savings and monthly_savings > 0:
+            months = list(range(1, len(df_no_refi)+1))
+            cum_savings = [monthly_savings*m - upfront_points_cost for m in months]
+            # truncate at refi date if exists
+            if refi_date is not None:
+                refi_months = (pd.to_datetime(refi_date).to_period("M") - orig_start_date.to_period("M")).n if orig_start_date is not None else None
+                if refi_months is not None:
+                    months = months[:refi_months]
+                    cum_savings = cum_savings[:refi_months]
+            fig_points.add_trace(go.Scatter(x=months, y=cum_savings, mode="lines", name="Origination Points"))
+            # Annotate breakeven
+            if upfront_points_cost > 0 and monthly_savings > 0:
+                breakeven_months = int(round(upfront_points_cost/monthly_savings))
+                if refi_date is None or (refi_months and breakeven_months <= refi_months):
+                    fig_points.add_annotation(x=breakeven_months, y=0, text=f"Breakeven @ {breakeven_months} mo", showarrow=True, arrowhead=2)
+                elif refi_date is not None and breakeven_months > refi_months:
+                    fig_points.add_annotation(x=breakeven_months, y=0, text=f"Would've breakeven @ {breakeven_months} mo (after refi)", showarrow=False, font=dict(color="gray"))
+    # --- Refi Points Savings ---
+    if df_with_refi is not None and refi_date is not None and 'Payment' in df_with_refi.columns:
+        refi_upfront_points_cost = refi_points_cost or 0.0
+        monthly_savings_refi = (globals().get('refi_monthly_payment_no_points') or 0) - (globals().get('refi_monthly_payment_with_points') or 0)
+        if monthly_savings_refi and monthly_savings_refi > 0:
+            refi_start_month = (pd.to_datetime(refi_date).to_period("M") - orig_start_date.to_period("M")).n if orig_start_date is not None else 0
+            months_refi = list(range(refi_start_month, refi_start_month+len(df_with_refi)))
+            cum_savings_refi = [monthly_savings_refi*(i-refi_start_month) - refi_upfront_points_cost for i in months_refi]
+            fig_points.add_trace(go.Scatter(x=months_refi, y=cum_savings_refi, mode="lines", name="Refi Points"))
+            # Annotate breakeven
+            if refi_upfront_points_cost > 0 and monthly_savings_refi > 0:
+                breakeven_refi = refi_start_month + int(round(refi_upfront_points_cost/monthly_savings_refi))
+                fig_points.add_annotation(x=breakeven_refi, y=0, text=f"Refi Breakeven @ {breakeven_refi} mo", showarrow=True, arrowhead=2)
+
+    # Vertical line at refi date
+    if refi_date is not None and orig_start_date is not None:
+        refi_months = (pd.to_datetime(refi_date).to_period("M") - orig_start_date.to_period("M")).n
+        fig_points.add_vline(x=refi_months, line=dict(color="gray", dash="dash"), annotation_text="Refi", annotation_position="top")
+
+fig_points.update_layout(yaxis_title="$ Saved vs No Points", xaxis_title="Months", height=350, margin=dict(l=20,r=20,t=40,b=20))
+st.plotly_chart(fig_points, use_container_width=True)
+
+st.caption("Origination points savings are shown only until the refinance date. If breakeven wasn’t reached, the curve is truncated. Refi points savings start fresh from the refinance date. Use 'Show all scenarios' to compare strategies.")
+
+# --- Legacy Chart Below ---
 st.subheader("Amortization Schedule")
 
 st.markdown("**Note**: 'Loan Type' indicates 'Original' (white) or 'Refinance' (blue). 'Effective Rate (%)' shows the applied interest rate.")
